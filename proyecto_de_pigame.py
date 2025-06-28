@@ -124,9 +124,12 @@ class DisparoEnemigo(pygame.sprite.Sprite):
         self.image = pygame.Surface((10, 10))
         self.image.fill(color)
         self.rect = self.image.get_rect(center=center_pos)
-        dx, dy = target_pos[0] - center_pos[0], target_pos[1] - center_pos[1]
-        dist = math.hypot(dx, dy)
-        self.vel_x, self.vel_y = (dx / dist) * speed if dist else 0, (dy / dist) * speed if dist else speed
+        if target_pos is not None:
+            dx, dy = target_pos[0] - center_pos[0], target_pos[1] - center_pos[1]
+            dist = math.hypot(dx, dy)
+            self.vel_x, self.vel_y = (dx / dist) * speed if dist else 0, (dy / dist) * speed if dist else speed
+        else:
+            self.vel_x, self.vel_y = 0, speed  # Movimiento vertical por defecto
 
     def update(self):
         self.rect.x += self.vel_x
@@ -135,71 +138,72 @@ class DisparoEnemigo(pygame.sprite.Sprite):
             self.kill()
 
 class Particula(pygame.sprite.Sprite):
-    def __init__(self, center_pos):
+    def __init__(self, center_pos, color=None):
         super().__init__()
         self.image = pygame.Surface((4, 4))
-        self.image.fill(ROJO)
+        if color is None:
+            # Colores aleatorios para las partículas
+            colors = [ROJO, VERDE, AZUL, AMARILLO, CYAN, MAGENTA, BLANCO]
+            color = random.choice(colors)
+        self.image.fill(color)
         self.rect = self.image.get_rect(center=center_pos)
-        self.vel_x, self.vel_y = random.uniform(-4, 4), random.uniform(-4, 4)
+        self.vel_x, self.vel_y = random.uniform(-6, 6), random.uniform(-6, 6)
         self.creation_time = pygame.time.get_ticks()
-        self.lifespan = random.randint(300, 700)
+        self.lifespan = random.randint(500, 1000)
 
     def update(self):
         self.rect.x += self.vel_x
         self.rect.y += self.vel_y
+        # Añadir gravedad
+        self.vel_y += 0.2
         if pygame.time.get_ticks() - self.creation_time > self.lifespan:
             self.kill()
 
 class DisparoExplosivo(DisparoEnemigo):
-    def __init__(self, center_pos, target_pos):
+    def __init__(self, center_pos, target_pos, color=ROJO):
         super().__init__(center_pos, target_pos, color=NEGRO, speed=3)
         self.image = pygame.Surface((15, 15), pygame.SRCALPHA)
-        pygame.draw.circle(self.image, BLANCO, (7, 7), 7)
-        pygame.draw.circle(self.image, ROJO, (7, 7), 4)
+        # Dibujar el proyectil explosivo con el color especificado
+        pygame.draw.circle(self.image, color, (7, 7), 7)
+        pygame.draw.circle(self.image, BLANCO, (7, 7), 4)
+        pygame.draw.circle(self.image, color, (7, 7), 2)
         self.rect = self.image.get_rect(center=center_pos)
 
     def update(self):
         self.rect.x += self.vel_x
         self.rect.y += self.vel_y
+        # Verificar si sale de pantalla
         if not pantalla.get_rect().colliderect(self.rect):
             self.explotar()
 
     def explotar(self):
-        for _ in range(random.randint(10, 15)):
+        # Crear más partículas para un efecto más espectacular
+        for _ in range(random.randint(15, 25)):
             all_sprites.add(Particula(self.rect.center))
         self.kill()
 
 class RayoLaser(pygame.sprite.Sprite):
     def __init__(self, center_pos, target_pos, color=CYAN, speed=8):
         super().__init__()
-        # Calcular la dirección del láser
-        dx, dy = target_pos[0] - center_pos[0], target_pos[1] - center_pos[1]
-        dist = math.hypot(dx, dy)
+        # Crear un rayo láser vertical que va hacia abajo
+        self.image = pygame.Surface((4, ALTO), pygame.SRCALPHA)
         
-        # Crear una superficie para el láser
-        self.image = pygame.Surface((4, dist), pygame.SRCALPHA)
-        
-        # Dibujar el láser con gradiente
-        for i in range(int(dist)):
-            alpha = 255 - (i * 100 // int(dist))  # Fade out effect
+        # Dibujar el láser vertical con gradiente
+        for i in range(ALTO):
+            alpha = 255 - (i * 100 // ALTO)  # Fade out effect
             color_with_alpha = (*color, alpha)
             pygame.draw.line(self.image, color_with_alpha, (2, i), (2, i+1), 4)
         
-        # Rotar la imagen para que apunte hacia el objetivo
-        angle = math.degrees(math.atan2(-dy, dx))
-        self.image = pygame.transform.rotate(self.image, angle)
-        
-        self.rect = self.image.get_rect(center=center_pos)
-        self.vel_x, self.vel_y = (dx / dist) * speed if dist else 0, (dy / dist) * speed if dist else speed
+        self.rect = self.image.get_rect(centerx=center_pos[0], top=center_pos[1])
+        self.vel_y = speed  # Solo movimiento vertical hacia abajo
         self.creation_time = pygame.time.get_ticks()
         self.lifespan = 2000  # 2 segundos
 
     def update(self):
-        self.rect.x += self.vel_x
         self.rect.y += self.vel_y
         
         # Eliminar si sale de pantalla o expira
-        if not pantalla.get_rect().colliderect(self.rect) or pygame.time.get_ticks() - self.creation_time > self.lifespan:
+        if self.rect.top > ALTO or pygame.time.get_ticks() - self.creation_time > self.lifespan:
             self.kill()
 
 class Semicirculo(pygame.sprite.Sprite):
@@ -215,6 +219,7 @@ class Semicirculo(pygame.sprite.Sprite):
         self.creation_time = pygame.time.get_ticks()
         self.lifespan = 1000  # 1 segundo
         self.vel_y = -2  # Se mueve hacia arriba
+        self.original_image = self.image.copy()
 
     def update(self):
         self.rect.y += self.vel_y
@@ -225,9 +230,8 @@ class Semicirculo(pygame.sprite.Sprite):
             self.kill()
         else:
             # Crear una nueva superficie con transparencia
-            temp_surface = self.image.copy()
-            temp_surface.set_alpha(alpha)
-            self.image = temp_surface
+            self.image = self.original_image.copy()
+            self.image.set_alpha(alpha)
 
 class Bola(pygame.sprite.Sprite):
     def __init__(self, color, radio=20):
@@ -278,20 +282,29 @@ class BolaAzul(Bola):
             self.reaparecer()
 
     def update(self):
-        if not jugador.hidden:
-            dx, dy = jugador.rect.centerx - self.rect.centerx, jugador.rect.centery - self.rect.centery
-            dist = math.hypot(dx, dy)
-            if dist > 0:
-                self.rect.x += (dx / dist) * self.vel
-                self.rect.y += (dy / dist) * self.vel
+        # Verificar si jugador existe y no está oculto
+        try:
+            if jugador and not jugador.hidden:
+                dx, dy = jugador.rect.centerx - self.rect.centerx, jugador.rect.centery - self.rect.centery
+                dist = math.hypot(dx, dy)
+                if dist > 0:
+                    self.rect.x += (dx / dist) * self.vel
+                    self.rect.y += (dy / dist) * self.vel
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
 
     def disparar(self):
-        now = pygame.time.get_ticks()
-        if now - self.last_shot > self.shoot_delay and not jugador.hidden:
-            self.last_shot = now
-            disparo = RayoLaser(self.rect.center, jugador.rect.center, color=CYAN)
-            all_sprites.add(disparo)
-            disparos_enemigos.add(disparo)
+        # Verificar si jugador existe y no está oculto
+        try:
+            if jugador and not jugador.hidden:
+                now = pygame.time.get_ticks()
+                if now - self.last_shot > self.shoot_delay:
+                    self.last_shot = now
+                    disparo = DisparoExplosivo(self.rect.center, jugador.rect.center, color=CYAN)
+                    all_sprites.add(disparo)
+                    disparos_enemigos.add(disparo)
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
 
 class BolaRoja(Bola):
     def __init__(self):
@@ -310,12 +323,17 @@ class BolaRoja(Bola):
             self.reaparecer()
 
     def disparar(self):
-        now = pygame.time.get_ticks()
-        if now - self.last_shot > self.shoot_delay and not jugador.hidden:
-            self.last_shot = now
-            disparo = RayoLaser(self.rect.center, jugador.rect.center, color=ROJO)
-            all_sprites.add(disparo)
-            disparos_enemigos.add(disparo)
+        # Verificar si jugador existe y no está oculto
+        try:
+            if jugador and not jugador.hidden:
+                now = pygame.time.get_ticks()
+                if now - self.last_shot > self.shoot_delay:
+                    self.last_shot = now
+                    disparo = DisparoExplosivo(self.rect.center, jugador.rect.center, color=ROJO)
+                    all_sprites.add(disparo)
+                    disparos_enemigos.add(disparo)
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
 
     def update(self):
         self.disparar()
@@ -329,28 +347,38 @@ class BolaNegra(Bola):
         self.vel_x = 2
 
     def on_hit(self):
-        damage = 1
-        if jugador.powerup_level == 2: # Doble Daño
-            damage = 2
-        self.vidas -= damage
-        if self.vidas <= 0:
-            self.destrucciones += 1
-            if self.destrucciones >= 5:
-                # Crear semicírculo cuando la bola desaparece
-                semicirculo = Semicirculo(self.rect.center, color=AMARILLO)
-                all_sprites.add(semicirculo)
-                self.kill()
-            else:
-                self.reaparecer()
-                self.vidas = 4
+        # Verificar si jugador existe
+        try:
+            if jugador:
+                damage = 1
+                if jugador.powerup_level == 2: # Doble Daño
+                    damage = 2
+                self.vidas -= damage
+                if self.vidas <= 0:
+                    self.destrucciones += 1
+                    if self.destrucciones >= 5:
+                        # Crear semicírculo cuando la bola desaparece
+                        semicirculo = Semicirculo(self.rect.center, color=AMARILLO)
+                        all_sprites.add(semicirculo)
+                        self.kill()
+                    else:
+                        self.reaparecer()
+                        self.vidas = 4
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
 
     def disparar(self):
-        now = pygame.time.get_ticks()
-        if now - self.last_shot > self.shoot_delay and not jugador.hidden:
-            self.last_shot = now
-            disparo = RayoLaser(self.rect.center, jugador.rect.center, color=BLANCO)
-            all_sprites.add(disparo)
-            disparos_enemigos.add(disparo)
+        # Verificar si jugador existe y no está oculto
+        try:
+            if jugador and not jugador.hidden:
+                now = pygame.time.get_ticks()
+                if now - self.last_shot > self.shoot_delay:
+                    self.last_shot = now
+                    disparo = DisparoExplosivo(self.rect.center, jugador.rect.center, color=BLANCO)
+                    all_sprites.add(disparo)
+                    disparos_enemigos.add(disparo)
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
 
     def update(self):
         self.rect.x += self.vel_x
@@ -411,8 +439,11 @@ bolas_azules.add(bola_azul)
 # Reloj y Bucle principal
 clock = pygame.time.Clock()
 ejecutando_juego = True
-while ejecutando_juego:
-    # --- Reset / Setup del juego ---
+
+def inicializar_juego():
+    """Función para inicializar el juego"""
+    global all_sprites, enemigos, bolas_azules, disparos_jugador, disparos_enemigos, jugador, jugador_mini_img
+    
     all_sprites = pygame.sprite.Group()
     enemigos = pygame.sprite.Group()
     bolas_azules = pygame.sprite.Group()
@@ -441,12 +472,19 @@ while ejecutando_juego:
     enemigos.add(bola_azul)
     bolas_azules.add(bola_azul)
 
+# Inicializar el juego por primera vez
+inicializar_juego()
+
+while ejecutando_juego:
     game_over = False
     partida_en_curso = True
+    
     while partida_en_curso:
         if game_over:
             if show_game_over_screen():
-                partida_en_curso = False # Para salir al bucle exterior y reiniciar
+                # Reiniciar el juego
+                inicializar_juego()
+                partida_en_curso = False
             else:
                 partida_en_curso = False
                 ejecutando_juego = False
@@ -458,6 +496,11 @@ while ejecutando_juego:
                     ejecutando_juego = False
 
             all_sprites.update()
+            
+            # Hacer que las bolas disparen
+            for bola in enemigos:
+                if hasattr(bola, 'disparar'):
+                    bola.disparar()
 
             # Colisión: Disparos del jugador vs enemigos
             golpeados = pygame.sprite.groupcollide(enemigos, disparos_jugador, False, True)
@@ -469,8 +512,10 @@ while ejecutando_juego:
                 # Disparos enemigos vs jugador
                 impactos_disparos = pygame.sprite.spritecollide(jugador, disparos_enemigos, False)
                 for impacto in impactos_disparos:
-                    if hasattr(impacto, 'explotar'): impacto.explotar()
-                    else: impacto.kill()
+                    if hasattr(impacto, 'explotar'): 
+                        impacto.explotar()
+                    else: 
+                        impacto.kill()
                     jugador.hide()
                 
                 # Bola azul vs jugador
