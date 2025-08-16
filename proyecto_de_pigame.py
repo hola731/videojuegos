@@ -24,6 +24,29 @@ FPS = 60
 pantalla = pygame.display.set_mode((ANCHO, ALTO))
 pygame.display.set_caption('Destruye las bolas')
 
+# Cargar imágenes de personajes
+try:
+    imagen_alien_verde = pygame.image.load('image/alien.webp').convert_alpha()
+    imagen_alien_rojo = pygame.image.load('image/alienrojo.png').convert_alpha()
+    imagen_nave = pygame.image.load('image/nave.png').convert_alpha()
+    imagen_alien_blanco = pygame.image.load('image/alienblanco.jpg').convert_alpha()
+    imagen_alien_azul = pygame.image.load('image/alienazul.png').convert_alpha()
+    
+    # Redimensionar imágenes para que se ajusten al juego
+    imagen_alien_verde = pygame.transform.scale(imagen_alien_verde, (40, 40))
+    imagen_alien_rojo = pygame.transform.scale(imagen_alien_rojo, (40, 40))
+    imagen_nave = pygame.transform.scale(imagen_nave, (50, 10))
+    imagen_alien_blanco = pygame.transform.scale(imagen_alien_blanco, (44, 44))
+    imagen_alien_azul = pygame.transform.scale(imagen_alien_azul, (40, 40))
+except:
+    # Si no se pueden cargar las imágenes, usar formas geométricas por defecto
+    imagen_alien_verde = None
+    imagen_alien_rojo = None
+    imagen_nave = None
+    imagen_alien_blanco = None
+    imagen_alien_azul = None
+    print("No se pudieron cargar las imágenes. Usando formas geométricas por defecto.")
+
 # Fuente para texto
 font_name = pygame.font.match_font('arial')
 
@@ -46,8 +69,11 @@ def dibujar_vidas_jugador(surf, x, y, vidas, img):
 class Jugador(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image_orig = pygame.Surface((50, 10))
-        self.image_orig.fill(BLANCO)
+        if imagen_nave:
+            self.image_orig = imagen_nave
+        else:
+            self.image_orig = pygame.Surface((50, 10))
+            self.image_orig.fill(BLANCO)
         self.image = self.image_orig.copy()
         self.rect = self.image.get_rect()
         self.rect.centerx = ANCHO // 2
@@ -316,20 +342,22 @@ class Bola(pygame.sprite.Sprite):
         self.radio = radio
         self.destrucciones = 0
         self.color = color
+        self.imagen_personalizada = None  # Para preservar imágenes personalizadas
         self.reaparecer()
 
     def reaparecer(self):
         self.rect.x = random.randint(self.radio, ANCHO - self.radio*2)
         self.rect.y = random.randint(50, 200)
+        # Restaurar imagen personalizada si existe
+        if self.imagen_personalizada:
+            self.image = self.imagen_personalizada
+            self.rect = self.image.get_rect()
+            self.rect.x = random.randint(self.radio, ANCHO - self.radio*2)
+            self.rect.y = random.randint(50, 200)
 
     def on_hit(self):
         self.destrucciones += 1
-        # Aplicar dificultad: en modo difícil, las bolas (excepto negras) aguantan un golpe más
-        max_destrucciones = 5
-        if dificultad_global == "dificil" and not isinstance(self, BolaNegra):
-            max_destrucciones = 6
-        
-        if self.destrucciones >= max_destrucciones:
+        if self.destrucciones >= 5:
             self.kill()
         else:
             self.reaparecer()
@@ -340,12 +368,12 @@ class Bola(pygame.sprite.Sprite):
 class BolaVerde(Bola):
     def __init__(self):
         super().__init__(VERDE)
-        # Aplicar dificultad: en modo fácil, disparan más lento
-        base_delay = 3000  # 3 segundos base
-        if dificultad_global == "facil":
-            self.shoot_delay = base_delay + 2000  # 2 segundos más lento
-        else:
-            self.shoot_delay = base_delay
+        # Usar imagen del alien verde si está disponible
+        if imagen_alien_verde:
+            self.image = imagen_alien_verde
+            self.rect = self.image.get_rect()
+            self.imagen_personalizada = imagen_alien_verde
+        self.shoot_delay = 3000  # 3 segundos
         self.last_shot = pygame.time.get_ticks() + random.randint(-1000, 1000)
 
     def on_hit(self):
@@ -382,13 +410,13 @@ class BolaVerde(Bola):
 class BolaAzul(Bola):
     def __init__(self):
         super().__init__(AZUL)
+        # Usar imagen del alien azul si está disponible
+        if imagen_alien_azul:
+            self.image = imagen_alien_azul
+            self.rect = self.image.get_rect()
+            self.imagen_personalizada = imagen_alien_azul
         self.vel = 1.5
-        # Aplicar dificultad: en modo fácil, disparan más lento
-        base_delay = 1500
-        if dificultad_global == "facil":
-            self.shoot_delay = base_delay + 1500  # 1.5 segundos más lento
-        else:
-            self.shoot_delay = base_delay
+        self.shoot_delay = 1500
         self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
 
     def on_hit(self):
@@ -433,12 +461,12 @@ class BolaAzul(Bola):
 class BolaRoja(Bola):
     def __init__(self):
         super().__init__(ROJO)
-        # Aplicar dificultad: en modo fácil, disparan más lento
-        base_delay = 1500
-        if dificultad_global == "facil":
-            self.shoot_delay = base_delay + 1500  # 1.5 segundos más lento
-        else:
-            self.shoot_delay = base_delay
+        # Usar imagen del alien rojo si está disponible
+        if imagen_alien_rojo:
+            self.image = imagen_alien_rojo
+            self.rect = self.image.get_rect()
+            self.imagen_personalizada = imagen_alien_rojo
+        self.shoot_delay = 1500
         self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
 
     def on_hit(self):
@@ -467,17 +495,13 @@ class BolaRoja(Bola):
 class BolaNegra(Bola):
     def __init__(self):
         super().__init__(BLANCO, radio=22) # Color cambiado a blanco
-        # Aplicar dificultad: en modo fácil, las bolas negras tienen menos vidas
-        if dificultad_global == "facil":
-            self.vidas = 2  # 2 vidas en modo fácil (en lugar de 4)
-        else:
-            self.vidas = 4  # 4 vidas en modo normal/difícil
-        # Aplicar dificultad: en modo fácil, disparan más lento
-        base_delay = 2000
-        if dificultad_global == "facil":
-            self.shoot_delay = base_delay + 2000  # 2 segundos más lento
-        else:
-            self.shoot_delay = base_delay
+        # Usar imagen del alien blanco si está disponible
+        if imagen_alien_blanco:
+            self.image = imagen_alien_blanco
+            self.rect = self.image.get_rect()
+            self.imagen_personalizada = imagen_alien_blanco
+        self.vidas = 4
+        self.shoot_delay = 2000
         self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
         self.vel_x = 2
 
@@ -495,11 +519,7 @@ class BolaNegra(Bola):
                         self.kill()
                     else:
                         self.reaparecer()
-                        # Restaurar vidas según la dificultad
-                        if dificultad_global == "facil":
-                            self.vidas = 2  # 2 vidas en modo fácil
-                        else:
-                            self.vidas = 4  # 4 vidas en modo normal/difícil
+                        self.vidas = 4
         except (NameError, AttributeError):
             pass  # El jugador aún no existe
 
@@ -593,36 +613,39 @@ def mostrar_pantalla_bonus():
     pygame.time.delay(3000)
 
 def mostrar_pantalla_inicio():
-    """Pantalla de inicio con 5 opciones"""
+    """Pantalla de inicio con 4 opciones"""
     while True:
         pantalla.fill(NEGRO)
         
         # Título del juego
         dibujar_texto(pantalla, "DESTRUYE LOS CÍRCULOS", 64, ANCHO // 2, ALTO // 6, CYAN)
         
-        # Mostrar monedas globales en la esquina superior derecha
-        dibujar_texto(pantalla, f"Monedas: {monedas_globales}", 18, ANCHO - 100, 20, AMARILLO)
-        
-        # Botones
+        # Botones principales (centro)
         boton_iniciar = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 - 90, 200, 50)
         boton_infinito = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 - 30, 200, 50)
-        boton_tienda = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 + 30, 200, 50)
-        boton_config = pygame.Rect(20, ALTO - 70, 150, 50)  # Esquina inferior izquierda
-        boton_salir = pygame.Rect(ANCHO - 170, ALTO - 70, 150, 50)  # Esquina inferior derecha
         
-        # Dibujar botones
+        # Botones inferiores
+        boton_config = pygame.Rect(20, ALTO - 80, 150, 50)  # Esquina inferior izquierda
+        boton_tienda = pygame.Rect(ANCHO // 2 - 75, ALTO - 80, 150, 50)  # Centro inferior
+        boton_salir = pygame.Rect(ANCHO - 170, ALTO - 80, 150, 50)  # Esquina inferior derecha
+        
+        # Dibujar botones principales
         pygame.draw.rect(pantalla, VERDE, boton_iniciar)
         pygame.draw.rect(pantalla, MAGENTA, boton_infinito)
-        pygame.draw.rect(pantalla, CYAN, boton_tienda)
+        
+        # Dibujar botones inferiores
         pygame.draw.rect(pantalla, AMARILLO, boton_config)
+        pygame.draw.rect(pantalla, CYAN, boton_tienda)
         pygame.draw.rect(pantalla, ROJO, boton_salir)
         
-        # Texto de los botones
-        dibujar_texto(pantalla, "Iniciar juego", 24, ANCHO // 2, ALTO // 2 - 80, NEGRO)
-        dibujar_texto(pantalla, "Niveles infinitos", 20, ANCHO // 2, ALTO // 2 - 20, NEGRO)
-        dibujar_texto(pantalla, "Tienda", 24, ANCHO // 2, ALTO // 2 + 40, NEGRO)
-        dibujar_texto(pantalla, "Configuración", 20, 95, ALTO - 55, NEGRO)
-        dibujar_texto(pantalla, "Salir", 20, ANCHO - 95, ALTO - 55, NEGRO)
+        # Texto de los botones principales
+        dibujar_texto(pantalla, "INICIAR JUEGO", 24, ANCHO // 2, ALTO // 2 - 80, NEGRO)
+        dibujar_texto(pantalla, "NIVELES INFINITOS", 20, ANCHO // 2, ALTO // 2 - 20, NEGRO)
+        
+        # Texto de los botones inferiores
+        dibujar_texto(pantalla, "CONFIGURACIÓN", 20, 95, ALTO - 70, NEGRO)
+        dibujar_texto(pantalla, "TIENDA", 24, ANCHO // 2, ALTO - 70, NEGRO)
+        dibujar_texto(pantalla, "SALIR", 24, ANCHO - 95, ALTO - 70, NEGRO)
         
         pygame.display.flip()
         
@@ -635,55 +658,44 @@ def mostrar_pantalla_inicio():
                     return "iniciar"
                 elif boton_infinito.collidepoint(evento.pos):
                     return "infinito"
-                elif boton_tienda.collidepoint(evento.pos):
-                    return "tienda"
                 elif boton_config.collidepoint(evento.pos):
                     return "configuracion"
+                elif boton_tienda.collidepoint(evento.pos):
+                    return "tienda"
                 elif boton_salir.collidepoint(evento.pos):
                     return "salir"
         
         clock.tick(FPS)
 
 def mostrar_pantalla_configuracion():
-    """Pantalla de configuración de controles con flecha para avanzar a dificultad"""
+    """Pantalla de configuración con opciones de controles"""
     global CONTROLES
+    controles_originales = CONTROLES.copy()
     
     while True:
         pantalla.fill(NEGRO)
         
-        dibujar_texto(pantalla, "CONFIGURACIÓN DE CONTROLES", 36, ANCHO // 2, ALTO // 6, AMARILLO)
+        dibujar_texto(pantalla, "CONFIGURACIÓN", 48, ANCHO // 2, ALTO // 4, AMARILLO)
         
         # Mostrar controles actuales
-        dibujar_texto(pantalla, "Controles actuales:", 24, ANCHO // 2, ALTO // 3, BLANCO)
-        dibujar_texto(pantalla, f"Izquierda: {pygame.key.name(CONTROLES['izquierda']).upper()}", 20, ANCHO // 2, ALTO // 3 + 30, VERDE)
-        dibujar_texto(pantalla, f"Derecha: {pygame.key.name(CONTROLES['derecha']).upper()}", 20, ANCHO // 2, ALTO // 3 + 60, VERDE)
-        dibujar_texto(pantalla, f"Disparo: {pygame.key.name(CONTROLES['disparo']).upper()}", 20, ANCHO // 2, ALTO // 3 + 90, VERDE)
+        dibujar_texto(pantalla, "Controles actuales:", 24, ANCHO // 2, ALTO // 2 - 80, BLANCO)
+        dibujar_texto(pantalla, f"Izquierda: {pygame.key.name(CONTROLES['izquierda']).upper()}", 20, ANCHO // 2, ALTO // 2 - 50, VERDE)
+        dibujar_texto(pantalla, f"Derecha: {pygame.key.name(CONTROLES['derecha']).upper()}", 20, ANCHO // 2, ALTO // 2 - 20, VERDE)
+        dibujar_texto(pantalla, f"Disparo: {pygame.key.name(CONTROLES['disparo']).upper()}", 20, ANCHO // 2, ALTO // 2 + 10, VERDE)
         
-        # Botones de controles
-        boton_flechas = pygame.Rect(ANCHO // 2 - 150, ALTO // 2 + 60, 140, 40)
-        boton_wasd = pygame.Rect(ANCHO // 2 + 10, ALTO // 2 + 60, 140, 40)
-        
-        # Botón volver
+        # Botones
+        boton_flechas = pygame.Rect(ANCHO // 2 - 150, ALTO // 2 + 50, 140, 40)
+        boton_wasd = pygame.Rect(ANCHO // 2 + 10, ALTO // 2 + 50, 140, 40)
         boton_volver = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 + 120, 200, 50)
         
-        # Flecha a la derecha para avanzar
-        boton_flecha = pygame.Rect(ANCHO - 80, ALTO // 2 + 20, 60, 50)
-        
-        # Dibujar botones de controles
+        # Dibujar botones
         pygame.draw.rect(pantalla, CYAN, boton_flechas)
         pygame.draw.rect(pantalla, CYAN, boton_wasd)
-        
-        # Dibujar botón volver
         pygame.draw.rect(pantalla, VERDE, boton_volver)
         
-        # Dibujar flecha
-        pygame.draw.rect(pantalla, AMARILLO, boton_flecha)
-        pygame.draw.polygon(pantalla, NEGRO, [(ANCHO - 50, ALTO // 2 + 35), (ANCHO - 30, ALTO // 2 + 50), (ANCHO - 50, ALTO // 2 + 65)])
-        
-        # Texto de los botones de controles
-        dibujar_texto(pantalla, "FLECHAS", 18, ANCHO // 2 - 80, ALTO // 2 + 70, NEGRO)
-        dibujar_texto(pantalla, "WASD", 18, ANCHO // 2 + 80, ALTO // 2 + 70, NEGRO)
-        
+        # Texto de los botones
+        dibujar_texto(pantalla, "FLECHAS", 18, ANCHO // 2 - 80, ALTO // 2 + 60, NEGRO)
+        dibujar_texto(pantalla, "WASD", 18, ANCHO // 2 + 80, ALTO // 2 + 60, NEGRO)
         dibujar_texto(pantalla, "VOLVER", 24, ANCHO // 2, ALTO // 2 + 130, NEGRO)
         
         pygame.display.flip()
@@ -708,49 +720,23 @@ def mostrar_pantalla_configuracion():
                     }
                 elif boton_volver.collidepoint(evento.pos):
                     return "volver"
-                elif boton_flecha.collidepoint(evento.pos):
-                    # Ir a la pantalla de configuración de dificultad
-                    return mostrar_pantalla_configuracion_avanzada()
         
         clock.tick(FPS)
 
-def mostrar_pantalla_configuracion_avanzada():
-    """Pantalla de configuración de dificultad"""
-    global dificultad_global
-    
+def mostrar_pantalla_tienda():
+    """Pantalla de tienda del juego"""
     while True:
         pantalla.fill(NEGRO)
         
-        dibujar_texto(pantalla, "CONFIGURACIÓN DE DIFICULTAD", 36, ANCHO // 2, ALTO // 6, AMARILLO)
+        # Título de la tienda
+        dibujar_texto(pantalla, "TIENDA", 64, ANCHO // 2, ALTO // 4, AMARILLO)
+        dibujar_texto(pantalla, "¡Próximamente más contenido!", 32, ANCHO // 2, ALTO // 2 - 50, CYAN)
+        dibujar_texto(pantalla, "Mejoras, skins y power-ups", 24, ANCHO // 2, ALTO // 2, BLANCO)
         
-        # Mostrar dificultad actual
-        dibujar_texto(pantalla, f"Dificultad actual: {dificultad_global.upper()}", 24, ANCHO // 2, ALTO // 3, BLANCO)
-        
-        # Explicación de las dificultades
-        dibujar_texto(pantalla, "FÁCIL: Enemigos disparan más lento, bolas negras más débiles", 16, ANCHO // 2, ALTO // 3 + 40, VERDE)
-        dibujar_texto(pantalla, "NORMAL: Dificultad estándar", 16, ANCHO // 2, ALTO // 3 + 70, AMARILLO)
-        dibujar_texto(pantalla, "DIFÍCIL: Enemigos resisten más golpes", 16, ANCHO // 2, ALTO // 3 + 100, ROJO)
-        
-        # Botones de dificultad
-        boton_facil = pygame.Rect(ANCHO // 2 - 150, ALTO // 2 + 60, 140, 40)
-        boton_normal = pygame.Rect(ANCHO // 2, ALTO // 2 + 60, 140, 40)
-        boton_dificil = pygame.Rect(ANCHO // 2 + 150, ALTO // 2 + 60, 140, 40)
-        
-        boton_volver = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 + 120, 200, 50)
-        
-        # Dibujar botones de dificultad
-        pygame.draw.rect(pantalla, VERDE, boton_facil)
-        pygame.draw.rect(pantalla, AMARILLO, boton_normal)
-        pygame.draw.rect(pantalla, ROJO, boton_dificil)
-        
+        # Botón para volver al menú principal
+        boton_volver = pygame.Rect(ANCHO // 2 - 100, ALTO - 100, 200, 50)
         pygame.draw.rect(pantalla, VERDE, boton_volver)
-        
-        # Texto de los botones de dificultad
-        dibujar_texto(pantalla, "FÁCIL", 18, ANCHO // 2 - 80, ALTO // 2 + 70, NEGRO)
-        dibujar_texto(pantalla, "NORMAL", 18, ANCHO // 2 + 70, ALTO // 2 + 70, NEGRO)
-        dibujar_texto(pantalla, "DIFÍCIL", 18, ANCHO // 2 + 220, ALTO // 2 + 70, NEGRO)
-        
-        dibujar_texto(pantalla, "VOLVER", 24, ANCHO // 2, ALTO // 2 + 130, NEGRO)
+        dibujar_texto(pantalla, "VOLVER AL MENÚ", 24, ANCHO // 2, ALTO - 90, NEGRO)
         
         pygame.display.flip()
         
@@ -758,16 +744,7 @@ def mostrar_pantalla_configuracion_avanzada():
             if evento.type == pygame.QUIT:
                 return "salir"
             elif evento.type == pygame.MOUSEBUTTONUP:
-                if boton_facil.collidepoint(evento.pos):
-                    dificultad_global = "facil"
-                    guardar_configuracion_global()
-                elif boton_normal.collidepoint(evento.pos):
-                    dificultad_global = "normal"
-                    guardar_configuracion_global()
-                elif boton_dificil.collidepoint(evento.pos):
-                    dificultad_global = "dificil"
-                    guardar_configuracion_global()
-                elif boton_volver.collidepoint(evento.pos):
+                if boton_volver.collidepoint(evento.pos):
                     return "volver"
         
         clock.tick(FPS)
@@ -781,174 +758,6 @@ CONTROLES = {
 
 # Variables para guardado
 ARCHIVO_GUARDADO = "guardado_infinito.json"
-ARCHIVO_MONEDAS = "monedas_globales.json"
-
-# Variables globales para monedas
-monedas_globales = 0
-
-# Variable global para dificultad
-dificultad_global = "normal"  # "facil", "normal", "dificil"
-
-def cargar_monedas_globales():
-    """Carga las monedas globales desde el archivo"""
-    global monedas_globales
-    try:
-        if os.path.exists(ARCHIVO_MONEDAS):
-            with open(ARCHIVO_MONEDAS, 'r') as f:
-                data = json.load(f)
-                monedas_globales = data.get('monedas', 0)
-    except Exception as e:
-        print(f"Error al cargar monedas: {e}")
-        monedas_globales = 0
-
-def cargar_configuracion_global():
-    """Carga tanto monedas como dificultad desde el archivo"""
-    cargar_monedas_globales()
-    cargar_dificultad()
-
-def guardar_monedas_globales():
-    """Guarda las monedas globales en el archivo"""
-    try:
-        # Cargar datos existentes
-        data = {}
-        if os.path.exists(ARCHIVO_MONEDAS):
-            with open(ARCHIVO_MONEDAS, 'r') as f:
-                data = json.load(f)
-        
-        # Actualizar con nuevas monedas
-        data['monedas'] = monedas_globales
-        
-        with open(ARCHIVO_MONEDAS, 'w') as f:
-            json.dump(data, f)
-    except Exception as e:
-        print(f"Error al guardar monedas: {e}")
-
-def guardar_configuracion_global():
-    """Guarda tanto monedas como dificultad en el archivo"""
-    try:
-        # Cargar datos existentes
-        data = {}
-        if os.path.exists(ARCHIVO_MONEDAS):
-            with open(ARCHIVO_MONEDAS, 'r') as f:
-                data = json.load(f)
-        
-        # Actualizar con nuevos datos
-        data['monedas'] = monedas_globales
-        data['dificultad'] = dificultad_global
-        
-        with open(ARCHIVO_MONEDAS, 'w') as f:
-            json.dump(data, f)
-    except Exception as e:
-        print(f"Error al guardar configuración: {e}")
-
-def cargar_dificultad():
-    """Carga la dificultad desde el archivo"""
-    global dificultad_global
-    try:
-        if os.path.exists(ARCHIVO_MONEDAS):
-            with open(ARCHIVO_MONEDAS, 'r') as f:
-                data = json.load(f)
-                dificultad_global = data.get('dificultad', 'normal')
-    except Exception as e:
-        print(f"Error al cargar dificultad: {e}")
-        dificultad_global = "normal"
-
-def guardar_dificultad():
-    """Guarda la dificultad en el archivo"""
-    try:
-        # Cargar datos existentes
-        data = {}
-        if os.path.exists(ARCHIVO_MONEDAS):
-            with open(ARCHIVO_MONEDAS, 'r') as f:
-                data = json.load(f)
-        
-        # Actualizar con nueva dificultad
-        data['dificultad'] = dificultad_global
-        
-        with open(ARCHIVO_MONEDAS, 'w') as f:
-            json.dump(data, f)
-    except Exception as e:
-        print(f"Error al guardar dificultad: {e}")
-
-def mostrar_mensaje_compra(producto):
-    """Muestra un mensaje temporal de compra exitosa"""
-    pantalla.fill(NEGRO)
-    dibujar_texto(pantalla, f"¡{producto} comprado!", 36, ANCHO // 2, ALTO // 2 - 50, VERDE)
-    dibujar_texto(pantalla, "Presiona cualquier tecla para continuar", 20, ANCHO // 2, ALTO // 2 + 50, BLANCO)
-    pygame.display.flip()
-    
-    esperando = True
-    while esperando:
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                return
-            elif evento.type == pygame.KEYDOWN or evento.type == pygame.MOUSEBUTTONUP:
-                esperando = False
-        clock.tick(FPS)
-
-def mostrar_pantalla_tienda():
-    """Pantalla de la tienda"""
-    global monedas_globales
-    
-    while True:
-        pantalla.fill(NEGRO)
-        
-        # Título
-        dibujar_texto(pantalla, "TIENDA", 48, ANCHO // 2, ALTO // 6, AMARILLO)
-        
-        # Mostrar monedas disponibles
-        dibujar_texto(pantalla, f"Monedas disponibles: {monedas_globales}", 24, ANCHO // 2, ALTO // 3, CYAN)
-        
-        # Productos de la tienda
-        productos = [
-            {"nombre": "Vida Extra", "precio": 50, "color": VERDE},
-            {"nombre": "Escudo Mejorado", "precio": 100, "color": AZUL},
-            {"nombre": "Disparo Potenciado", "precio": 150, "color": ROJO},
-            {"nombre": "Puntos Dobles", "precio": 200, "color": MAGENTA}
-        ]
-        
-        # Dibujar productos
-        for i, producto in enumerate(productos):
-            y_pos = ALTO // 2 + i * 60
-            boton = pygame.Rect(ANCHO // 2 - 150, y_pos, 300, 50)
-            
-            # Color del botón según si se puede comprar
-            if monedas_globales >= producto["precio"]:
-                color_boton = producto["color"]
-            else:
-                color_boton = (100, 100, 100)  # Gris si no se puede comprar
-            
-            pygame.draw.rect(pantalla, color_boton, boton)
-            dibujar_texto(pantalla, f"{producto['nombre']} - {producto['precio']} monedas", 20, ANCHO // 2, y_pos + 15, NEGRO)
-        
-        # Botón volver en la esquina superior izquierda (más pequeño)
-        boton_volver = pygame.Rect(20, 20, 100, 35)
-        pygame.draw.rect(pantalla, ROJO, boton_volver)
-        dibujar_texto(pantalla, "VOLVER", 18, 70, 32, BLANCO)
-        
-        pygame.display.flip()
-        
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                return "salir"
-            elif evento.type == pygame.MOUSEBUTTONUP:
-                # Verificar clics en productos
-                for i, producto in enumerate(productos):
-                    y_pos = ALTO // 2 + i * 60
-                    boton = pygame.Rect(ANCHO // 2 - 150, y_pos, 300, 50)
-                    if boton.collidepoint(evento.pos):
-                        if monedas_globales >= producto["precio"]:
-                            # Comprar producto
-                            monedas_globales -= producto["precio"]
-                            guardar_configuracion_global()
-                            # Mostrar mensaje de compra exitosa
-                            mostrar_mensaje_compra(producto["nombre"])
-                
-                # Verificar clic en botón volver
-                if boton_volver.collidepoint(evento.pos):
-                    return "volver"
-        
-        clock.tick(FPS)
 
 def serializar_enemigos():
     """Convierte el estado actual de los enemigos a formato JSON"""
@@ -1063,16 +872,16 @@ def mostrar_pantalla_guardado_infinito():
         # Botones
         boton_nuevo = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 - 20, 200, 50)
         pygame.draw.rect(pantalla, VERDE, boton_nuevo)
-        dibujar_texto(pantalla, "Nuevo juego", 24, ANCHO // 2, ALTO // 2 - 10, NEGRO)
+        dibujar_texto(pantalla, "NUEVO JUEGO", 24, ANCHO // 2, ALTO // 2 - 10, NEGRO)
         
         if progreso:
             boton_continuar = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 + 40, 200, 50)
             pygame.draw.rect(pantalla, AMARILLO, boton_continuar)
-            dibujar_texto(pantalla, "Continuar", 24, ANCHO // 2, ALTO // 2 + 50, NEGRO)
+            dibujar_texto(pantalla, "CONTINUAR", 24, ANCHO // 2, ALTO // 2 + 50, NEGRO)
         
         boton_volver = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 + 100, 200, 50)
         pygame.draw.rect(pantalla, ROJO, boton_volver)
-        dibujar_texto(pantalla, "Volver", 24, ANCHO // 2, ALTO // 2 + 110, NEGRO)
+        dibujar_texto(pantalla, "VOLVER", 24, ANCHO // 2, ALTO // 2 + 110, NEGRO)
         
         pygame.display.flip()
         
@@ -1185,72 +994,32 @@ def generar_horda_infinita(horda):
     if horda > 1:
         mostrar_pantalla_horda(horda)
     
-    # Las primeras 5 hordas son iguales al modo principal
-    if horda == 1:
-        for _ in range(3):
-            b = BolaNegra()
-            all_sprites.add(b)
-            enemigos.add(b)
-    elif horda == 2:
-        for _ in range(4):
-            b = BolaVerde()
-            all_sprites.add(b)
-            enemigos.add(b)
-    elif horda == 3:
-        for _ in range(4):
-            b = BolaAzul()
-            all_sprites.add(b)
-            enemigos.add(b)
-            bolas_azules.add(b)
-    elif horda == 4:
-        for _ in range(5):
-            b = BolaRoja()
-            all_sprites.add(b)
-            enemigos.add(b)
-    elif horda == 5:
-        for _ in range(3):
-            b = BolaVerde()
-            all_sprites.add(b)
-            enemigos.add(b)
-        for _ in range(2):
-            b = BolaRoja()
-            all_sprites.add(b)
-            enemigos.add(b)
-        for _ in range(2):
-            b = BolaNegra()
-            all_sprites.add(b)
-            enemigos.add(b)
-        bola_azul = BolaAzul()
-        all_sprites.add(bola_azul)
-        enemigos.add(bola_azul)
-        bolas_azules.add(bola_azul)
-    else:
-        # A partir de la horda 6, usar dificultad creciente
-        num_bolas_verdes = min(3 + ((horda - 5) // 3), 8)  # Máximo 8 bolas verdes
-        num_bolas_rojas = min(2 + ((horda - 5) // 2), 6)    # Máximo 6 bolas rojas
-        num_bolas_negras = min(2 + ((horda - 5) // 4), 5)   # Máximo 5 bolas negras
-        num_bolas_azules = min(1 + ((horda - 5) // 5), 4)   # Máximo 4 bolas azules
-        
-        for _ in range(num_bolas_verdes):
-            b = BolaVerde()
-            all_sprites.add(b)
-            enemigos.add(b)
-        
-        for _ in range(num_bolas_rojas):
-            b = BolaRoja()
-            all_sprites.add(b)
-            enemigos.add(b)
-        
-        for _ in range(num_bolas_negras):
-            b = BolaNegra()
-            all_sprites.add(b)
-            enemigos.add(b)
-        
-        for _ in range(num_bolas_azules):
-            b = BolaAzul()
-            all_sprites.add(b)
-            enemigos.add(b)
-            bolas_azules.add(b)
+    # Dificultad creciente: más bolas según el número de horda
+    num_bolas_verdes = min(3 + (horda // 3), 8)  # Máximo 8 bolas verdes
+    num_bolas_rojas = min(2 + (horda // 2), 6)    # Máximo 6 bolas rojas
+    num_bolas_negras = min(2 + (horda // 4), 5)   # Máximo 5 bolas negras
+    num_bolas_azules = min(1 + (horda // 5), 4)   # Máximo 4 bolas azules
+    
+    for _ in range(num_bolas_verdes):
+        b = BolaVerde()
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    for _ in range(num_bolas_rojas):
+        b = BolaRoja()
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    for _ in range(num_bolas_negras):
+        b = BolaNegra()
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    for _ in range(num_bolas_azules):
+        b = BolaAzul()
+        all_sprites.add(b)
+        enemigos.add(b)
+        bolas_azules.add(b)
 
 
 def inicializar_juego(reset_horda=True):
@@ -1271,9 +1040,6 @@ def inicializar_juego(reset_horda=True):
     all_sprites.add(jugador)
     if reset_horda:
         generar_horda(horda_actual)
-
-# Cargar configuración global al inicio
-cargar_configuracion_global()
 
 # Inicializar el juego por primera vez
 inicializar_juego()
@@ -1358,18 +1124,14 @@ while ejecutando_juego:
                     monedas_recolectadas = pygame.sprite.spritecollide(jugador, monedas, True)
                     for moneda in monedas_recolectadas:
                         puntos += 10  # Sumar 10 puntos por cada moneda
-                        monedas_globales += 1  # Sumar 1 moneda global por cada moneda recolectada
                     # Verificar condiciones de fin de juego
                     if jugador.vidas == 0 and not jugador.hidden:
                         game_over = True
-                        guardar_configuracion_global()  # Guardar configuración al terminar
                     elif len(enemigos) == 0:
                         if horda_actual < TOTAL_HORDAS:
                             horda_actual += 1
-                            # Solo dar vida extra en la horda 3
-                            if horda_actual == 3:
-                                jugador.vidas += 1
-                                mostrar_vida_extra()
+                            jugador.vidas += 1  # Dar una vida extra al avanzar de horda
+                            mostrar_vida_extra()
                             generar_horda(horda_actual)
                         elif horda_actual == TOTAL_HORDAS:
                             horda_actual += 1
@@ -1378,7 +1140,6 @@ while ejecutando_juego:
                             generar_horda(horda_actual)
                         else:
                             victory = True
-                            guardar_configuracion_global()  # Guardar configuración al ganar
 
                     # Dibujar todo
                     pantalla.fill(NEGRO)
@@ -1471,7 +1232,6 @@ while ejecutando_juego:
                         if evento.type == pygame.QUIT:
                             # Guardar progreso automáticamente al cerrar el juego
                             guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-                            guardar_configuracion_global()  # Guardar configuración global
                             partida_en_curso = False
                             ejecutando_juego = False
                         elif evento.type == pygame.MOUSEBUTTONUP:
@@ -1480,13 +1240,12 @@ while ejecutando_juego:
                             if boton_salir.collidepoint(evento.pos):
                                 # Guardar progreso automáticamente al salir
                                 guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-                                guardar_configuracion_global()  # Guardar configuración global
+                                partida_en_curso = False
                             # Verificar si se hizo clic en el botón de guardar
                             boton_guardar = pygame.Rect(310, 5, 80, 30)
                             if boton_guardar.collidepoint(evento.pos):
                                 if mostrar_pantalla_guardar():
                                     guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-                                    guardar_configuracion_global()  # Guardar configuración global
 
                     all_sprites.update()
                     # Hacer que las bolas disparen
@@ -1523,7 +1282,6 @@ while ejecutando_juego:
                     monedas_recolectadas = pygame.sprite.spritecollide(jugador, monedas, True)
                     for moneda in monedas_recolectadas:
                         puntos += 10  # Sumar 10 puntos por cada moneda
-                        monedas_globales += 1  # Sumar 1 moneda global por cada moneda recolectada
                     # Verificar condiciones de fin de juego
                     if jugador.vidas == 0 and not jugador.hidden:
                         game_over = True
@@ -1533,7 +1291,6 @@ while ejecutando_juego:
                         jugador.vidas += 1  # Dar una vida extra al avanzar de horda
                         # Guardar progreso automáticamente al avanzar de horda
                         guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-                        guardar_configuracion_global()  # Guardar configuración global
                         mostrar_vida_extra()
                         generar_horda_infinita(horda_actual)
 
@@ -1575,17 +1332,15 @@ while ejecutando_juego:
                     
                     pygame.display.flip()
         
-        elif opcion == "tienda":
-            # Mostrar pantalla de tienda
-            tienda_opcion = mostrar_pantalla_tienda()
-            if tienda_opcion == "salir":
-                ejecutando_juego = False
-        
         elif opcion == "configuracion":
             # Mostrar pantalla de configuración
             config_opcion = mostrar_pantalla_configuracion()
             if config_opcion == "salir":
                 ejecutando_juego = False
+        
+        elif opcion == "tienda":
+            # Mostrar pantalla de tienda (por ahora solo muestra un mensaje)
+            mostrar_pantalla_tienda()
         
         elif opcion == "salir":
             ejecutando_juego = False
