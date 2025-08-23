@@ -4,12 +4,38 @@
 
 La tienda del juego permite a los jugadores comprar objetos y mejoras usando las monedas que recolectan durante el juego.
 
+## 🎯 Sistema de Hordas
+
+### Hordas Normales (1-6)
+- **Horda 1**: 3 Bolas Negras
+- **Horda 2**: 4 Bolas Verdes
+- **Horda 3**: 4 Bolas Azules
+- **Horda 4**: 5 Bolas Rojas
+- **Horda 5**: Mezcla de todas las bolas anteriores
+- **Horda 6**: Nivel Bonus con 3 Bolas Azules
+
+### Horda 7 (Nuevas Bolas)
+- **2 Bolas Moradas**: Con teletransporte automático
+- **2 Bolas Naranjas**: Con disparo de 3 rayos láser
+- **2 Bolas Grises**: Con división en bolas pequeñas
+
+### Modo Infinito
+- **Dificultad Creciente**: Más enemigos según el número de horda
+- **Nuevas Bolas**: Aparecen progresivamente en hordas avanzadas
+- **Máximos**: Hasta 8 verdes, 6 rojas, 5 negras, 4 azules, 3 moradas, 3 naranjas, 3 grises
+
 ## 🎯 Características del Juego
 
 ### Enemigos Profesionales
 - **Tamaño Aumentado**: Los enemigos ahora tienen un tamaño de 60x60 píxeles para una apariencia más profesional
 - **Imágenes Optimizadas**: Sprites de aliens redimensionados para mejor visibilidad
 - **Colisiones Mejoradas**: Hitboxes más precisas y visibles
+
+### Nuevas Bolas Enemigas
+- **Bola Morada/Rosa**: Se teletransporta automáticamente cada 4 segundos
+- **Bola Naranja**: Dispara 3 rayos láser pequeños en diferentes direcciones (permanece quieta)
+- **Bola Gris**: Se mueve en diagonal y al destruirse crea 3 bolas pequeñas
+- **Bola Pequeña**: Bolas grises pequeñas que mueren con un solo golpe y tienen 8 segundos de vida
 
 ### Jugador Mejorado
 - **Tamaño Aumentado**: La nave del jugador ahora es de 70x15 píxeles para mejor visibilidad
@@ -144,6 +170,43 @@ La tienda del juego permite a los jugadores comprar objetos y mejoras usando las
 - Logros y recompensas especiales
 - Personalización de personajes
 - Power-ups únicos
+
+## 🎯 Nuevas Bolas Enemigas
+
+### 🔮 Bola Morada/Rosa
+- **Color**: Magenta/Morado
+- **Habilidad**: Teletransporte automático cada 4 segundos
+- **Comportamiento**: Se mueve aleatoriamente por la pantalla
+- **Disparo**: Proyectiles explosivos morados
+- **Estrategia**: Difícil de predecir debido al teletransporte
+
+### 🟠 Bola Naranja
+- **Color**: Naranja
+- **Habilidad**: Dispara 3 rayos láser pequeños consecutivamente
+- **Comportamiento**: Se mueve horizontalmente de izquierda a derecha
+- **Patrón de Disparo**: 
+  - Rayo 1: Hacia abajo (0°)
+  - Rayo 2: Diagonal (45°)
+  - Rayo 3: Hacia la derecha (90°)
+- **Teletransporte**: Se teletransporta cada 5 segundos si no es destruida
+- **Estrategia**: Evitar estar en las líneas de fuego y predecir su movimiento
+
+### ⚫ Bola Gris
+- **Color**: Gris
+- **Habilidad**: Se divide en 3 bolas pequeñas al destruirse
+- **Comportamiento**: Movimiento diagonal con rebote en bordes
+- **Disparo**: Proyectiles explosivos grises
+- **Bolas Pequeñas**:
+  - Tamaño: 15x15 píxeles
+  - Vida: 1 golpe
+  - Duración: 8 segundos
+  - Movimiento: Aleatorio con rebote
+
+### 🎮 Consejos para las Nuevas Bolas
+1. **Bola Morada**: Mantén distancia y espera que aparezca cerca
+2. **Bola Naranja**: Identifica las direcciones de los rayos y evítalos, ten en cuenta su movimiento horizontal
+3. **Bola Gris**: Destrúyela en una esquina para limitar el movimiento de las bolas pequeñas
+4. **Bolas Pequeñas**: Prioriza eliminarlas rápidamente antes de que se dispersen
 
 ---
 

@@ -549,6 +549,254 @@ class BolaNegra(Bola):
             self.vel_x *= -1
         self.disparar()
 
+class BolaMorada(Bola):
+    def __init__(self):
+        super().__init__(MAGENTA, radio=30)  # Color morado/rosa
+        self.shoot_delay = 2500
+        self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
+        self.teleport_delay = 4000  # Teletransporte cada 4 segundos
+        self.last_teleport = pygame.time.get_ticks()
+
+    def on_hit(self):
+        self.destrucciones += 1
+        if self.destrucciones >= 5:
+            self.kill()
+        else:
+            self.reaparecer()
+
+    def teletransportar(self):
+        """Teletransporta la bola a una nueva posición aleatoria"""
+        self.rect.x = random.randint(self.radio, ANCHO - self.radio*2)
+        self.rect.y = random.randint(50, 200)
+
+    def disparar(self):
+        # Verificar si jugador existe y no está oculto
+        try:
+            if jugador and not jugador.hidden:
+                now = pygame.time.get_ticks()
+                if now - self.last_shot > self.shoot_delay:
+                    self.last_shot = now
+                    disparo = DisparoExplosivo(self.rect.center, jugador.rect.center, color=MAGENTA)
+                    all_sprites.add(disparo)
+                    disparos_enemigos.add(disparo)
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
+
+    def update(self):
+        # Teletransporte automático
+        now = pygame.time.get_ticks()
+        if now - self.last_teleport > self.teleport_delay:
+            self.teletransportar()
+            self.last_teleport = now
+        
+        self.disparar()
+
+class BolaNaranja(Bola):
+    def __init__(self):
+        super().__init__((255, 165, 0), radio=30)  # Color naranja
+        self.shoot_delay = 3000
+        self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
+        self.disparando = False
+        self.disparo_timer = 0
+        self.rayos_disparados = 0
+        self.vel_x = 2  # Velocidad de movimiento horizontal
+        self.teleport_delay = 5000  # Teletransporte cada 5 segundos si no es destruida
+        self.last_teleport = pygame.time.get_ticks()
+
+    def on_hit(self):
+        self.destrucciones += 1
+        if self.destrucciones >= 5:
+            self.kill()
+        else:
+            self.reaparecer()
+
+    def teletransportar(self):
+        """Teletransporta la bola a una nueva posición aleatoria"""
+        self.rect.x = random.randint(self.radio, ANCHO - self.radio*2)
+        self.rect.y = random.randint(50, 200)
+
+    def disparar_tres_rayos(self):
+        """Dispara tres rayos láser pequeños consecutivos"""
+        if self.rayos_disparados < 3:
+            # Crear rayos láser pequeños en direcciones fijas
+            angulos = [0, 45, 90]  # Direcciones: abajo, diagonal, derecha
+            for i, angulo in enumerate(angulos):
+                if self.rayos_disparados == i:
+                    # Convertir ángulo a radianes
+                    rad = math.radians(angulo)
+                    # Calcular velocidad en X e Y
+                    vel_x = math.cos(rad) * 4
+                    vel_y = math.sin(rad) * 4
+                    
+                    # Crear rayo láser pequeño
+                    rayo = RayoLaserPequeno(self.rect.center, (vel_x, vel_y), color=(255, 165, 0))
+                    all_sprites.add(rayo)
+                    disparos_enemigos.add(rayo)
+                    self.rayos_disparados += 1
+                    break
+
+    def disparar(self):
+        # Verificar si jugador existe y no está oculto
+        try:
+            if jugador and not jugador.hidden:
+                now = pygame.time.get_ticks()
+                if now - self.last_shot > self.shoot_delay:
+                    if not self.disparando:
+                        self.disparando = True
+                        self.disparo_timer = now
+                        self.rayos_disparados = 0
+                    
+                    # Disparar los tres rayos consecutivamente con delay entre ellos
+                    if self.disparando and now - self.disparo_timer > 300:  # 300ms entre rayos
+                        self.disparar_tres_rayos()
+                        if self.rayos_disparados >= 3:
+                            self.disparando = False
+                            self.last_shot = now
+        except (NameError, AttributeError):
+            pass  # El jugador aún no existe
+
+    def update(self):
+        # Movimiento horizontal de izquierda a derecha
+        self.rect.x += self.vel_x
+        
+        # Rebotar en los bordes
+        if self.rect.right > ANCHO or self.rect.left < 0:
+            self.vel_x *= -1
+        
+        # Teletransporte automático si no es destruida
+        now = pygame.time.get_ticks()
+        if now - self.last_teleport > self.teleport_delay:
+            self.teletransportar()
+            self.last_teleport = now
+        
+        # Disparar
+        self.disparar()
+
+class Bomba(pygame.sprite.Sprite):
+    def __init__(self, center_pos):
+        super().__init__()
+        self.image = pygame.Surface((20, 20), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, (139, 69, 19), (10, 10), 10)  # Color marrón
+        pygame.draw.circle(self.image, (255, 0, 0), (10, 10), 8)     # Color rojo
+        pygame.draw.circle(self.image, (255, 255, 0), (10, 10), 4)   # Color amarillo (mecha)
+        self.rect = self.image.get_rect(center=center_pos)
+        self.vel_x = random.uniform(-3, 3)
+        self.vel_y = random.uniform(-3, 3)
+        self.lifespan = 10000  # 10 segundos
+        self.creation_time = pygame.time.get_ticks()
+    
+    def on_hit(self):
+        self.kill()  # La bomba se destruye al tocar al jugador
+    
+    def update(self):
+        # Movimiento con rebote
+        self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
+        
+        # Rebotar en los bordes de la pantalla
+        if self.rect.right > ANCHO or self.rect.left < 0:
+            self.vel_x *= -1
+        if self.rect.bottom > ALTO - 100 or self.rect.top < 50:
+            self.vel_y *= -1
+        
+        # Verificar tiempo de vida
+        if pygame.time.get_ticks() - self.creation_time > self.lifespan:
+            self.kill()
+
+class BolaGris(Bola):
+    def __init__(self):
+        super().__init__((128, 128, 128), radio=30)
+        self.shoot_delay = 2000
+        self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
+        self.vel_x = 1.5
+        self.vel_y = 1.5
+    
+    def on_hit(self):  # 5 hits, crea bombas antes de morir
+        self.destrucciones += 1
+        if self.destrucciones >= 5:
+            self.crear_bombas()
+            self.kill()
+        else:
+            self.reaparecer()
+    
+    def crear_bombas(self):  # Crea 4 bombas rebotantes
+        for _ in range(4):
+            bomba = Bomba(self.rect.center)
+            all_sprites.add(bomba)
+            enemigos.add(bomba)
+    
+    def disparar(self):  # DisparoExplosivo
+        try:
+            if jugador and not jugador.hidden:
+                now = pygame.time.get_ticks()
+                if now - self.last_shot > self.shoot_delay:
+                    self.last_shot = now
+                    disparo = DisparoExplosivo(self.rect.center, jugador.rect.center, color=(128, 128, 128))
+                    all_sprites.add(disparo)
+                    disparos_enemigos.add(disparo)
+        except (NameError, AttributeError):
+            pass
+    
+    def update(self):  # Movimiento diagonal, rebote, disparo
+        self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
+        
+        if self.rect.right > ANCHO or self.rect.left < 0:
+            self.vel_x *= -1
+        if self.rect.bottom > ALTO - 100 or self.rect.top < 50:
+            self.vel_y *= -1
+        
+        self.disparar()
+
+class BolaPequena(Bola):
+    """Bolas pequeñas que crea la BolaGris"""
+    def __init__(self, center_pos):
+        super().__init__((100, 100, 100), radio=15)  # Color gris más oscuro, tamaño pequeño
+        self.rect.center = center_pos
+        self.vel_x = random.uniform(-2, 2)
+        self.vel_y = random.uniform(-2, 2)
+        self.lifespan = 8000  # 8 segundos de vida
+        self.creation_time = pygame.time.get_ticks()
+
+    def on_hit(self):
+        self.kill()  # Las bolas pequeñas mueren con un solo golpe
+
+    def update(self):
+        # Movimiento
+        self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
+        
+        # Rebotar en los bordes
+        if self.rect.right > ANCHO or self.rect.left < 0:
+            self.vel_x *= -1
+        if self.rect.bottom > ALTO - 100 or self.rect.top < 50:
+            self.vel_y *= -1
+        
+        # Verificar tiempo de vida
+        if pygame.time.get_ticks() - self.creation_time > self.lifespan:
+            self.kill()
+
+class RayoLaserPequeno(pygame.sprite.Sprite):
+    """Rayo láser pequeño para la BolaNaranja"""
+    def __init__(self, center_pos, velocidad, color=(255, 165, 0), speed=4):
+        super().__init__()
+        self.image = pygame.Surface((3, 3), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, color, (1, 1), 1)
+        self.rect = self.image.get_rect(center=center_pos)
+        self.vel_x, self.vel_y = velocidad
+        self.creation_time = pygame.time.get_ticks()
+        self.lifespan = 1500  # 1.5 segundos
+
+    def update(self):
+        self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
+        
+        # Eliminar si sale de pantalla o expira
+        if (self.rect.right < 0 or self.rect.left > ANCHO or 
+            self.rect.bottom < 0 or self.rect.top > ALTO or
+            pygame.time.get_ticks() - self.creation_time > self.lifespan):
+            self.kill()
+
 def show_game_over_screen():
     pantalla.fill(NEGRO)
     dibujar_texto(pantalla, "GAME OVER", 64, ANCHO / 2, ALTO / 4, ROJO)
@@ -1120,7 +1368,7 @@ def serializar_enemigos():
         enemigo_info = {
             'tipo': enemigo.__class__.__name__,
             'posicion': [enemigo.rect.x, enemigo.rect.y],
-            'destrucciones': enemigo.destrucciones,
+            'destrucciones': enemigo.destrucciones if hasattr(enemigo, 'destrucciones') else 0,
             'radio': enemigo.radio if hasattr(enemigo, 'radio') else 20
         }
         # Para BolaNegra, guardar también las vidas
@@ -1156,6 +1404,16 @@ def recrear_enemigos(enemigos_data):
             enemigo = BolaRoja()
         elif enemigo_info['tipo'] == 'BolaNegra':
             enemigo = BolaNegra()
+        elif enemigo_info['tipo'] == 'BolaMorada':
+            enemigo = BolaMorada()
+        elif enemigo_info['tipo'] == 'BolaNaranja':
+            enemigo = BolaNaranja()
+        elif enemigo_info['tipo'] == 'BolaGris':
+            enemigo = BolaGris()
+        elif enemigo_info['tipo'] == 'BolaPequena':
+            enemigo = BolaPequena(enemigo_info['posicion'])
+        elif enemigo_info['tipo'] == 'Bomba':
+            enemigo = Bomba(enemigo_info['posicion'])
         else:
             continue  # Tipo desconocido, saltar
         
@@ -1291,7 +1549,7 @@ monedas = pygame.sprite.Group()  # Nuevo grupo para monedas
 puntos = 0  # Contador de puntos por monedas
 
 horda_actual = 1
-TOTAL_HORDAS = 5
+TOTAL_HORDAS = 30
 
 def generar_horda(horda):
     """Genera bolas/enemigos según el número de horda."""
@@ -1351,6 +1609,365 @@ def generar_horda(horda):
             all_sprites.add(b)
             enemigos.add(b)
             bolas_azules.add(b)
+    elif horda == 7:  # Horda con nuevas bolas
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaNaranja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaGris()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 8:  # Horda con bolas moradas
+        for _ in range(3):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 9:  # Horda con bolas grises
+        for _ in range(3):
+            b = BolaGris()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 10:  # Horda con bolas naranjas
+        for _ in range(3):
+            b = BolaNaranja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 11:  # Horda mixta: 2 bolas negras + 2 bolas verdes
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaVerde()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 12:  # Horda mixta: 2 bolas azules + 2 bolas rojas
+        for _ in range(2):
+            b = BolaAzul()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+            bolas_azules.add(b)
+        for _ in range(2):
+            b = BolaRoja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 13:  # Horda mixta: 2 bolas moradas + 2 bolas naranjas
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaNaranja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 14:  # Horda mixta: 2 bolas grises + 2 bolas negras
+        for _ in range(2):
+            b = BolaGris()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+    
+    elif horda == 15:  # Horda mixta: 2 bolas verdes + 2 bolas azules + 1 bola roja
+        for _ in range(2):
+            b = BolaVerde()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaAzul()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+            bolas_azules.add(b)
+        b = BolaRoja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 16:  # Horda mixta: 2 bolas moradas + 2 bolas grises + 1 bola naranja
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaGris()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaNaranja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 17:  # Horda mixta: 2 bolas negras + 2 bolas rojas + 1 bola verde
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaRoja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaVerde()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 18:  # Horda mixta: 2 bolas azules + 2 bolas moradas + 1 bola gris
+        for _ in range(2):
+            b = BolaAzul()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+            bolas_azules.add(b)
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaGris()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 19:  # Horda mixta: 2 bolas naranjas + 2 bolas verdes + 1 bola negra
+        for _ in range(2):
+            b = BolaNaranja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaVerde()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaNegra()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 20:  # Horda mixta: 2 bolas rojas + 2 bolas grises + 1 bola azul
+        for _ in range(2):
+            b = BolaRoja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaGris()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaAzul()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+        bolas_azules.add(b)
+    
+    elif horda == 21:  # Horda mixta: 2 bolas moradas + 2 bolas negras + 1 bola naranja
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaNaranja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 22:  # Horda mixta: 2 bolas verdes + 2 bolas rojas + 1 bola gris
+        for _ in range(2):
+            b = BolaVerde()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaRoja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaGris()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 23:  # Horda mixta: 2 bolas azules + 2 bolas naranjas + 1 bola morada
+        for _ in range(2):
+            b = BolaAzul()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+            bolas_azules.add(b)
+        for _ in range(2):
+            b = BolaNaranja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaMorada()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 24:  # Horda mixta: 2 bolas negras + 2 bolas grises + 1 bola verde
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaGris()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaVerde()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 25:  # Horda mixta: 2 bolas rojas + 2 bolas moradas + 1 bola azul
+        for _ in range(2):
+            b = BolaRoja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaAzul()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+        bolas_azules.add(b)
+    
+    elif horda == 26:  # Horda mixta: 2 bolas verdes + 2 bolas naranjas + 1 bola roja
+        for _ in range(2):
+            b = BolaVerde()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaNaranja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaRoja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 27:  # Horda mixta: 2 bolas negras + 2 bolas azules + 1 bola gris
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaAzul()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+            bolas_azules.add(b)
+        b = BolaGris()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 28:  # Horda mixta: 2 bolas moradas + 2 bolas verdes + 1 bola naranja
+        for _ in range(2):
+            b = BolaMorada()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaVerde()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaNaranja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 29:  # Horda mixta: 2 bolas rojas + 2 bolas negras + 1 bola morada
+        for _ in range(2):
+            b = BolaRoja()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        for _ in range(2):
+            b = BolaNegra()
+            aplicar_dificultad_enemigo(b)
+            all_sprites.add(b)
+            enemigos.add(b)
+        b = BolaMorada()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    elif horda == 30:  # Horda final: 1 de cada tipo (5 bolas total)
+        b = BolaNegra()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+        
+        b = BolaVerde()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+        
+        b = BolaAzul()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+        bolas_azules.add(b)
+        
+        b = BolaRoja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+        
+        b = BolaMorada()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
 
 def aplicar_dificultad_enemigo(enemigo):
     """Aplica la dificultad seleccionada a los enemigos"""
@@ -1382,6 +1999,9 @@ def generar_horda_infinita(horda):
     num_bolas_rojas = min(2 + (horda // 2), 6)    # Máximo 6 bolas rojas
     num_bolas_negras = min(2 + (horda // 4), 5)   # Máximo 5 bolas negras
     num_bolas_azules = min(1 + (horda // 5), 4)   # Máximo 4 bolas azules
+    num_bolas_moradas = min(1 + (horda // 6), 3)  # Máximo 3 bolas moradas
+    num_bolas_naranjas = min(1 + (horda // 7), 3) # Máximo 3 bolas naranjas
+    num_bolas_grises = min(1 + (horda // 8), 3)   # Máximo 3 bolas grises
     
     for _ in range(num_bolas_verdes):
         b = BolaVerde()
@@ -1407,6 +2027,24 @@ def generar_horda_infinita(horda):
         all_sprites.add(b)
         enemigos.add(b)
         bolas_azules.add(b)
+    
+    for _ in range(num_bolas_moradas):
+        b = BolaMorada()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    for _ in range(num_bolas_naranjas):
+        b = BolaNaranja()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
+    
+    for _ in range(num_bolas_grises):
+        b = BolaGris()
+        aplicar_dificultad_enemigo(b)
+        all_sprites.add(b)
+        enemigos.add(b)
 
 
 def inicializar_juego(reset_horda=True):
