@@ -5,8 +5,32 @@ import math
 import json
 import os
 
+
+
+
 # Inicialización de Pygame
 pygame.init()
+bolas_celestes = pygame.sprite.Group()
+
+# Clase BolaCeleste (debe ir después de inicializar pygame)
+class BolaCeleste(pygame.sprite.Sprite):
+    """Bola celeste especial que otorga un poder aleatorio al jugador"""
+    def __init__(self, center_pos):
+        super().__init__()
+        # Crear una superficie circular para la bola celeste
+        self.image = pygame.Surface((28, 28), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, CYAN, (14, 14), 14)
+        pygame.draw.circle(self.image, BLANCO, (14, 14), 9)
+        self.rect = self.image.get_rect(center=center_pos)
+        self.vel_y = 2  # Velocidad de caída
+        self.creation_time = pygame.time.get_ticks()
+        self.lifespan = 6000  # Duración de vida en milisegundos
+
+    def update(self):
+        """Actualizar la posición y verificar si debe eliminarse"""
+        self.rect.y += self.vel_y
+        if self.rect.top > ALTO or pygame.time.get_ticks() - self.creation_time > self.lifespan:
+            self.kill()
 
 # Constantes
 ANCHO, ALTO = 800, 600
@@ -128,11 +152,6 @@ class Jugador(pygame.sprite.Sprite):
             self.escudo = False
 
         if not self.hidden:
-            # Ciclo de poderes
-            if pygame.time.get_ticks() - self.powerup_timer > 5000:
-                self.powerup_timer = pygame.time.get_ticks()
-                self.powerup_level = (self.powerup_level % 3) + 1
-
             teclas = pygame.key.get_pressed()
             if teclas[CONTROLES['izquierda']] and self.rect.left > 0:
                 self.rect.x -= self.vel_x
@@ -379,8 +398,12 @@ class Bola(pygame.sprite.Sprite):
         destrucciones_necesarias = 5
         if hasattr(self, 'destrucciones_extra'):
             destrucciones_necesarias += self.destrucciones_extra
-        
         if self.destrucciones >= destrucciones_necesarias:
+            # 50% de probabilidad de soltar bola celeste SOLO al ser destruida
+            if random.random() < 0.5:
+                bola_celeste = BolaCeleste(self.rect.center)
+                all_sprites.add(bola_celeste)
+                bolas_celestes.add(bola_celeste)
             self.kill()
         else:
             self.reaparecer()
@@ -400,18 +423,13 @@ class BolaVerde(Bola):
         self.last_shot = pygame.time.get_ticks() + random.randint(-1000, 1000)
 
     def on_hit(self):
-        self.destrucciones += 1
+        super().on_hit()
         if self.destrucciones >= 5:
-            # Crear monedas cuando la bola desaparece permanentemente
             for _ in range(random.randint(2, 4)):
                 moneda = Moneda(self.rect.center)
                 añadir_sprite_seguro(moneda, all_sprites, monedas)
-            self.kill()
         else:
-            # Crear moneda cuando la bola reaparece
             moneda = Moneda(self.rect.center)
-            # La moneda se añadirá al grupo cuando se llame a generar_horda
-            self.reaparecer()
 
     def disparar(self):
         # Verificar si jugador existe y no está oculto
@@ -443,18 +461,12 @@ class BolaAzul(Bola):
         self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
 
     def on_hit(self):
-        self.destrucciones += 1
+        super().on_hit()
         if self.destrucciones >= 5:
-            # Crear monedas cuando la bola azul desaparece permanentemente
             for _ in range(random.randint(1, 3)):
                 moneda = Moneda(self.rect.center)
-                # La moneda se añadirá al grupo cuando se llame a generar_horda
-            self.kill()
         else:
-            # Crear moneda cuando la bola azul reaparece
             moneda = Moneda(self.rect.center)
-            # La moneda se añadirá al grupo cuando se llame a generar_horda
-            self.reaparecer()
 
     def disparar(self):
         # Verificar si jugador existe y no está oculto
@@ -493,11 +505,7 @@ class BolaRoja(Bola):
         self.last_shot = pygame.time.get_ticks() + random.randint(-500, 500)
 
     def on_hit(self):
-        self.destrucciones += 1
-        if self.destrucciones >= 5:
-            self.kill()
-        else:
-            self.reaparecer()
+        super().on_hit()
 
     def disparar(self):
         # Verificar si jugador existe y no está oculto
@@ -538,10 +546,8 @@ class BolaNegra(Bola):
                 self.vidas -= damage
                 if self.vidas <= 0:
                     self.destrucciones += 1
-                    if self.destrucciones >= 5:
-                        self.kill()
-                    else:
-                        self.reaparecer()
+                    super().on_hit()
+                    if self.destrucciones < 5:
                         self.vidas = 4
         except (NameError, AttributeError):
             pass  # El jugador aún no existe
@@ -574,11 +580,7 @@ class BolaMorada(Bola):
         self.last_teleport = pygame.time.get_ticks()
 
     def on_hit(self):
-        self.destrucciones += 1
-        if self.destrucciones >= 5:
-            self.kill()
-        else:
-            self.reaparecer()
+        super().on_hit()
 
     def teletransportar(self):
         """Teletransporta la bola a una nueva posición aleatoria"""
@@ -625,11 +627,7 @@ class BolaNaranja(Bola):
         self.last_teleport = pygame.time.get_ticks()
 
     def on_hit(self):
-        self.destrucciones += 1
-        if self.destrucciones >= 5:
-            self.kill()
-        else:
-            self.reaparecer()
+        super().on_hit()
 
     def teletransportar(self):
         """Teletransporta la bola a una nueva posición aleatoria"""
@@ -1042,7 +1040,8 @@ def mostrar_pantalla_inicio():
         # Manejar eventos
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return "salir"
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.MOUSEBUTTONUP:
                 if boton_iniciar.collidepoint(evento.pos):
                     return "iniciar"
@@ -1103,7 +1102,8 @@ def mostrar_pantalla_configuracion():
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return "salir"
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.MOUSEBUTTONUP:
                 if boton_flechas.collidepoint(evento.pos):
                     # Cambiar a controles de flechas
@@ -1171,7 +1171,8 @@ def mostrar_pantalla_dificultad():
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return "salir"
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.MOUSEBUTTONUP:
                 if boton_facil.collidepoint(evento.pos):
                     DIFICULTAD_JUEGO = "facil"
@@ -1399,7 +1400,8 @@ def mostrar_pantalla_tienda():
 
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return "salir"
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.MOUSEBUTTONUP:
                 mouse_pos = evento.pos
                 # Verificar clic en botón volver
@@ -1482,7 +1484,8 @@ def mostrar_mensaje_compra(nombre_item):
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return "salir"
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.KEYDOWN or evento.type == pygame.MOUSEBUTTONUP:
                 return
         
@@ -1654,7 +1657,8 @@ def mostrar_pantalla_guardado_infinito():
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return "salir"
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.MOUSEBUTTONUP:
                 if boton_nuevo.collidepoint(evento.pos):
                     return "nuevo"
@@ -1727,7 +1731,8 @@ def mostrar_pantalla_guardar():
     while esperando:
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return False
+                pygame.quit()
+                sys.exit()
             elif evento.type == pygame.MOUSEBUTTONUP:
                 if boton_si.collidepoint(evento.pos):
                     return True
@@ -2249,6 +2254,7 @@ def inicializar_juego(reset_horda=True):
     disparos_jugador = pygame.sprite.Group()
     disparos_enemigos = pygame.sprite.Group()
     monedas = pygame.sprite.Group()
+    # NO reinicializar bolas_celestes aquí, para mantener el grupo global
     if reset_horda:
         horda_actual = 1
         puntos = 0
@@ -2269,6 +2275,7 @@ ejecutando_juego = True
 # Pantalla de inicio
 while ejecutando_juego:
     try:
+        mostrar_tienda_despues = False
         opcion = mostrar_pantalla_inicio()
 
         if opcion == "tienda":
@@ -2296,16 +2303,13 @@ while ejecutando_juego:
                 if jugador.vidas == 0 and not jugador.hidden:
                     opcion_game_over = show_game_over_screen()
                     if opcion_game_over == "tienda":
-                        # Ir a la tienda
                         partida_en_curso = False
+                        mostrar_tienda_despues = True
                     elif opcion_game_over == "menu":
-                        # Volver al menú principal
                         partida_en_curso = False
                     elif opcion_game_over == "reiniciar":
-                        # Volver a jugar el mismo nivel
                         inicializar_juego()
                         mostrar_pantalla_horda(horda_actual)
-                        # No salir del bucle, reinicia el nivel
                     else:
                         partida_en_curso = False
                         ejecutando_juego = False
@@ -2384,6 +2388,7 @@ while ejecutando_juego:
                     # Dibujar todo
                     pantalla.fill(NEGRO)
                     all_sprites.draw(pantalla)
+                    # ...
                     # Dibujar escudo si está activo
                     if jugador.escudo and not jugador.hidden:
                         # Escudo más notorio: círculo grueso y efecto de brillo
@@ -2423,192 +2428,158 @@ while ejecutando_juego:
         
         elif opcion == "infinito":
             # Mostrar pantalla de guardado/continuar
-            opcion_infinito = mostrar_pantalla_guardado_infinito()
-            
-            if opcion_infinito == "nuevo":
-                # Iniciar nuevo juego infinito
+            if opcion == "iniciar":
+                # Mostrar pantalla de niveles y solo la horda seleccionada
+                nivel_seleccionado = mostrar_pantalla_niveles()
+                if nivel_seleccionado == "volver":
+                    continue
+                elif nivel_seleccionado == False:
+                    ejecutando_juego = False
+                    continue
+                else:
+                    horda_actual = nivel_seleccionado
                 inicializar_juego()
                 mostrar_pantalla_horda(horda_actual)
+                # Aquí solo se inicia la horda seleccionada, no se repite la pantalla
                 game_over = False
+                victory = False
                 partida_en_curso = True
-            elif opcion_infinito == "continuar":
-                # Cargar progreso guardado
-                progreso = cargar_progreso_infinito()
-                if progreso:
-                    # Asignar los valores del progreso globalmente
-                    horda_actual = progreso['horda']
-                    puntos = progreso['puntos']
-                    # Inicializar sin resetear la horda
-                    inicializar_juego(reset_horda=False)
-                    # Configurar las vidas del jugador
-                    jugador.vidas = progreso['vidas']
-                    # Recrear los enemigos exactos que se guardaron
-                    if 'enemigos' in progreso and progreso['enemigos']:
-                        recrear_enemigos(progreso['enemigos'])
-                    else:
-                        # Si no hay datos de enemigos (guardado antiguo), generar horda normal
-                        generar_horda_infinita(horda_actual)
-                    mostrar_pantalla_horda(horda_actual)
-                    game_over = False
-                    partida_en_curso = True
-                else:
-                    # Si no hay progreso, iniciar nuevo
-                    inicializar_juego()
-                    mostrar_pantalla_horda(horda_actual)
-                    game_over = False
-                    partida_en_curso = True
-            elif opcion_infinito == "volver":
-                continue
-            elif opcion_infinito == "salir":
-                ejecutando_juego = False
-                break
-            
-            # Bucle del juego infinito
-            while partida_en_curso:
-                if game_over:
-                    opcion_game_over = show_game_over_screen()
-                    if opcion_game_over == "jugar":
-                        # Reiniciar el juego infinito
-                        inicializar_juego()
-                        mostrar_pantalla_horda(horda_actual)
-                        partida_en_curso = False
-                    elif opcion_game_over == "menu":
-                        # Volver al menú principal
-                        partida_en_curso = False
-                    else:
-                        partida_en_curso = False
-                        ejecutando_juego = False
-                else:
-                    clock.tick(FPS)
-                    for evento in pygame.event.get():
-                        if evento.type == pygame.QUIT:
-                            # Guardar progreso automáticamente al cerrar el juego
-                            guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
+                while partida_en_curso:
+                    if jugador.vidas == 0 and not jugador.hidden:
+                        opcion_game_over = show_game_over_screen()
+                        if opcion_game_over == "tienda":
+                            partida_en_curso = False
+                            mostrar_tienda_despues = True
+                        elif opcion_game_over == "menu":
+                            partida_en_curso = False
+                        elif opcion_game_over == "reiniciar":
+                            inicializar_juego()
+                            mostrar_pantalla_horda(horda_actual)
+                        else:
                             partida_en_curso = False
                             ejecutando_juego = False
-                        elif evento.type == pygame.MOUSEBUTTONUP:
-                            # Verificar si se hizo clic en el botón de salir
-                            boton_salir = pygame.Rect(220, 5, 80, 30)
-                            if boton_salir.collidepoint(evento.pos):
-                                # Guardar progreso automáticamente al salir
-                                guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-                                partida_en_curso = False
-                            # Verificar si se hizo clic en el botón de guardar
-                            boton_guardar = pygame.Rect(310, 5, 80, 30)
-                            if boton_guardar.collidepoint(evento.pos):
-                                if mostrar_pantalla_guardar():
-                                    guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-
-                    all_sprites.update()
-                    # Hacer que las bolas disparen
-                    for bola in enemigos:
-                        if hasattr(bola, 'disparar'):
-                            bola.disparar()
-
-                    # Colisión: Disparos del jugador vs enemigos
-                    golpeados = pygame.sprite.groupcollide(enemigos, disparos_jugador, False, True)
-                    for enemigo in golpeados:
-                        enemigo.on_hit()
-
-                    # Colisión: Enemigos o sus disparos vs jugador
-                    if not jugador.hidden:
-                        if not jugador.escudo:
-                            # Disparos enemigos vs jugador
-                            impactos_disparos = pygame.sprite.spritecollide(jugador, disparos_enemigos, False)
-                            for impacto in impactos_disparos:
-                                if hasattr(impacto, 'explotar'): 
-                                    impacto.explotar()
-                                else: 
-                                    impacto.kill()
-                                jugador.hide()
-                            # Bola azul vs jugador
-                            colisiones_bola_azul = pygame.sprite.spritecollide(jugador, bolas_azules, False)
-                            if colisiones_bola_azul:
-                                jugador.hide()
-                                for bola in colisiones_bola_azul:
-                                    bola.on_hit()
+                    elif victory:
+                        if show_victory_screen():
+                            inicializar_juego()
+                            mostrar_pantalla_horda(horda_actual)
+                            partida_en_curso = False
                         else:
-                            # Si tiene escudo, ignora cualquier daño
-                            pass
-                    # --- Colisión: Jugador recolecta monedas ---
-                    monedas_recolectadas = pygame.sprite.spritecollide(jugador, monedas, True)
-                    for moneda in monedas_recolectadas:
-                        puntos_base = 10
-                        if DOBLE_PUNTOS_ACTIVO:
-                            puntos_base *= 2
-                        puntos += puntos_base  # Sumar puntos (doble si está activo)
-                        # Añadir moneda al contador global
-                        MONEDAS_JUGADOR += 1
-                        guardar_monedas(MONEDAS_JUGADOR)
-                    
-                    # Verificar y aplicar mejoras temporales
-                    now = pygame.time.get_ticks()
-                    if DOBLE_PUNTOS_ACTIVO and now - DOBLE_PUNTOS_TIMER > 30000:  # 30 segundos
-                        DOBLE_PUNTOS_ACTIVO = False
-                    if ESCUDO_TEMPORAL_TIMER > 0 and now - ESCUDO_TEMPORAL_TIMER > 10000:  # 10 segundos
-                        jugador.escudo = False
-                        ESCUDO_TEMPORAL_TIMER = 0
-                    
-                    # Verificar condiciones de fin de juego
-                    if jugador.vidas == 0 and not jugador.hidden:
-                        game_over = True
-                    elif len(enemigos) == 0:
-                        # En modo infinito, siempre avanzar a la siguiente horda
-                        horda_actual += 1
-                        jugador.vidas += 1  # Dar una vida extra al avanzar de horda
-                        # Guardar progreso automáticamente al avanzar de horda
-                        guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
-                        mostrar_vida_extra()
-                        generar_horda_infinita(horda_actual)
+                            partida_en_curso = False
+                            ejecutando_juego = False
+                    else:
+                        clock.tick(FPS)
+                        for evento in pygame.event.get():
+                            if evento.type == pygame.QUIT:
+                                partida_en_curso = False
+                                ejecutando_juego = False
+                        all_sprites.update()
+                        for bola in enemigos:
+                            if hasattr(bola, 'disparar'):
+                                bola.disparar()
+                        golpeados = pygame.sprite.groupcollide(enemigos, disparos_jugador, False, True)
+                        for enemigo in golpeados:
+                            enemigo.on_hit()
+                        if not jugador.hidden:
+                            if not jugador.escudo:
+                                impactos_disparos = pygame.sprite.spritecollide(jugador, disparos_enemigos, False)
+                                if impactos_disparos:
+                                    for impacto in impactos_disparos:
+                                        if hasattr(impacto, 'explotar'): 
+                                            impacto.explotar()
+                                        else: 
+                                            impacto.kill()
+                                    jugador.hide()
+                                colisiones_bola_azul = pygame.sprite.spritecollide(jugador, bolas_azules, False)
+                                if colisiones_bola_azul and not jugador.hidden:
+                                    jugador.hide()
+                                    for bola in colisiones_bola_azul:
+                                        bola.on_hit()
+                            else:
+                                pass
+                        monedas_recolectadas = pygame.sprite.spritecollide(jugador, monedas, True)
+                        for moneda in monedas_recolectadas:
+                            puntos_base = 10
+                            if DOBLE_PUNTOS_ACTIVO:
+                                puntos_base *= 2
+                            puntos += puntos_base
+                            MONEDAS_JUGADOR += 1
+                            guardar_monedas(MONEDAS_JUGADOR)
 
-                    # Dibujar todo
-                    pantalla.fill(NEGRO)
-                    all_sprites.draw(pantalla)
-                    # Dibujar escudo si está activo
-                    if jugador.escudo and not jugador.hidden:
-                        # Escudo más notorio: círculo grueso y efecto de brillo
-                        escudo_rect = jugador.rect.inflate(30, 30)
-                        pygame.draw.ellipse(pantalla, CYAN, escudo_rect, 6)
-                        for i in range(3):
-                            color_brillo = (0, 255, 255, 80 - i*25)
-                            s = pygame.Surface((escudo_rect.width+10, escudo_rect.height+10), pygame.SRCALPHA)
-                            pygame.draw.ellipse(s, color_brillo, s.get_rect(), 6-i*2)
-                            pantalla.blit(s, (escudo_rect.x-5, escudo_rect.y-5))
+                        # --- Colisión: Jugador recoge bola celeste ---
+                        # Colisión usando spritecollide para mayor robustez
+                        if not jugador.hidden:
+                            bolas_celeste_colisionadas = pygame.sprite.spritecollide(jugador, bolas_celestes, True)
+                            for bola_celeste in bolas_celeste_colisionadas:
+                                # Efecto visual: partículas al recoger la bola celeste
+                                for _ in range(18):
+                                    particle = Particula(bola_celeste.rect.center, color=CYAN)
+                                    all_sprites.add(particle)
+                                # Otorgar un poder aleatorio al jugador
+                                poder = random.choice(['doble_disparo', 'triple_disparo', 'vida_extra', 'doble_dano'])
+                                if poder == 'doble_disparo':
+                                    jugador.powerup_level = max(jugador.powerup_level, 1)
+                                    jugador.powerup_timer = pygame.time.get_ticks()
+                                elif poder == 'triple_disparo':
+                                    jugador.powerup_level = max(jugador.powerup_level, 3)
+                                    jugador.powerup_timer = pygame.time.get_ticks()
+                                elif poder == 'vida_extra':
+                                    jugador.vidas += 1
+                                elif poder == 'doble_dano':
+                                    jugador.powerup_level = 2
+                                    jugador.powerup_timer = pygame.time.get_ticks()
+                        now = pygame.time.get_ticks()
+                        if DOBLE_PUNTOS_ACTIVO and now - DOBLE_PUNTOS_TIMER > 30000:
+                            DOBLE_PUNTOS_ACTIVO = False
+                        if ESCUDO_TEMPORAL_TIMER > 0 and now - ESCUDO_TEMPORAL_TIMER > 10000:
+                            jugador.escudo = False
+                            ESCUDO_TEMPORAL_TIMER = 0
+                        if jugador.vidas == 0 and not jugador.hidden:
+                            game_over = True
+                        elif len(enemigos) == 0:
+                            # Aquí NO se repite la pantalla de horda, solo termina la partida
+                            partida_en_curso = False
+                        pantalla.fill(NEGRO)
+                        all_sprites.draw(pantalla)
+                        if jugador.escudo and not jugador.hidden:
+                            escudo_rect = jugador.rect.inflate(30, 30)
+                            pygame.draw.ellipse(pantalla, CYAN, escudo_rect, 6)
+                            for i in range(3):
+                                color_brillo = (0, 255, 255, 80 - i*25)
+                                s = pygame.Surface((escudo_rect.width+10, escudo_rect.height+10), pygame.SRCALPHA)
+                                pygame.draw.ellipse(s, color_brillo, s.get_rect(), 6-i*2)
+                                pantalla.blit(s, (escudo_rect.x-5, escudo_rect.y-5))
+                            if ESCUDO_TEMPORAL_TIMER > 0:
+                                tiempo_escudo = max(0, 10 - (now - ESCUDO_TEMPORAL_TIMER) // 1000)
+                                dibujar_texto(pantalla, f"Escudo: {tiempo_escudo}s", 18, 90, 75, CYAN)
+                        dibujar_vidas_jugador(pantalla, ANCHO - 100, 10, jugador.vidas, jugador_mini_img)
+                        powerup_text = "Poder: Ninguno"
+                        if jugador.powerup_level == 1:
+                            powerup_text = "Poder: Doble Disparo"
+                        elif jugador.powerup_level == 2:
+                            powerup_text = "Poder: Doble Daño"
+                        elif jugador.powerup_level == 3:
+                            powerup_text = "Poder: Triple Disparo"
+                        dibujar_texto(pantalla, powerup_text, 18, ANCHO / 2, 10)
+                        # Mostrar puntos en pantalla
+                        dibujar_texto(pantalla, f"Puntos: {puntos}", 22, 90, 10, AMARILLO)
+                        # Mostrar monedas del jugador
+                        dibujar_texto(pantalla, f"Monedas: {MONEDAS_JUGADOR}", 20, 90, 35, (255, 215, 0))
+                        # Mostrar mejoras activas
+                        if DOBLE_PUNTOS_ACTIVO:
+                            tiempo_restante = max(0, 30 - (now - DOBLE_PUNTOS_TIMER) // 1000)
+                            dibujar_texto(pantalla, f"2x Puntos: {tiempo_restante}s", 18, 90, 55, VERDE)
+                        # Botón de salir a la izquierda del botón guardar
+                        boton_salir = pygame.Rect(220, 5, 80, 30)
+                        pygame.draw.rect(pantalla, ROJO, boton_salir)
+                        dibujar_texto(pantalla, "SALIR", 16, 260, 10, BLANCO)
+                        # Botón de guardar al lado del botón salir
+                        boton_guardar = pygame.Rect(310, 5, 80, 30)
+                        pygame.draw.rect(pantalla, VERDE, boton_guardar)
+                        dibujar_texto(pantalla, "GUARDAR", 16, 350, 10, NEGRO)
+                        # Mostrar número de horda (infinito)
+                        dibujar_texto(pantalla, f"Horda: {horda_actual} (∞)", 22, ANCHO - 120, 40, MAGENTA)
                         
-                        # Mostrar tiempo restante del escudo temporal
-                        if ESCUDO_TEMPORAL_TIMER > 0:
-                            tiempo_escudo = max(0, 10 - (now - ESCUDO_TEMPORAL_TIMER) // 1000)
-                            dibujar_texto(pantalla, f"Escudo: {tiempo_escudo}s", 18, 90, 75, CYAN)
-                    # HUD
-                    dibujar_vidas_jugador(pantalla, ANCHO - 100, 10, jugador.vidas, jugador_mini_img)
-                    powerup_text = "Poder: Ninguno"
-                    if jugador.powerup_level == 1:
-                        powerup_text = "Poder: Doble Disparo"
-                    elif jugador.powerup_level == 2:
-                        powerup_text = "Poder: Doble Daño"
-                    elif jugador.powerup_level == 3:
-                        powerup_text = "Poder: Triple Disparo"
-                    dibujar_texto(pantalla, powerup_text, 18, ANCHO / 2, 10)
-                    # Mostrar puntos en pantalla
-                    dibujar_texto(pantalla, f"Puntos: {puntos}", 22, 90, 10, AMARILLO)
-                    # Mostrar monedas del jugador
-                    dibujar_texto(pantalla, f"Monedas: {MONEDAS_JUGADOR}", 20, 90, 35, (255, 215, 0))
-                    # Mostrar mejoras activas
-                    if DOBLE_PUNTOS_ACTIVO:
-                        tiempo_restante = max(0, 30 - (now - DOBLE_PUNTOS_TIMER) // 1000)
-                        dibujar_texto(pantalla, f"2x Puntos: {tiempo_restante}s", 18, 90, 55, VERDE)
-                    # Botón de salir a la izquierda del botón guardar
-                    boton_salir = pygame.Rect(220, 5, 80, 30)
-                    pygame.draw.rect(pantalla, ROJO, boton_salir)
-                    dibujar_texto(pantalla, "SALIR", 16, 260, 10, BLANCO)
-                    # Botón de guardar al lado del botón salir
-                    boton_guardar = pygame.Rect(310, 5, 80, 30)
-                    pygame.draw.rect(pantalla, VERDE, boton_guardar)
-                    dibujar_texto(pantalla, "GUARDAR", 16, 350, 10, NEGRO)
-                    # Mostrar número de horda (infinito)
-                    dibujar_texto(pantalla, f"Horda: {horda_actual} (∞)", 22, ANCHO - 120, 40, MAGENTA)
-                    
-                    pygame.display.flip()
+                        pygame.display.flip()
         
         elif opcion == "configuracion":
             # Mostrar pantalla de configuración
@@ -2622,6 +2593,10 @@ while ejecutando_juego:
         
         elif opcion == "salir":
             ejecutando_juego = False
+
+        # Mostrar la tienda si se seleccionó desde el game over
+        if mostrar_tienda_despues:
+            mostrar_pantalla_tienda()
     except Exception as e:
         print(f"Error en el juego: {e}")
         ejecutando_juego = False
