@@ -109,11 +109,18 @@ except:
 font_name = pygame.font.match_font('arial')
 
 def dibujar_texto(surf, text, size, x, y, color=BLANCO):
-    font = pygame.font.Font(font_name, size)
+    """Dibuja texto en la superficie especificada"""
+    font = pygame.font.Font(None, size)
     text_surface = font.render(text, True, color)
     text_rect = text_surface.get_rect()
-    text_rect.midtop = (x, y)
+    text_rect.center = (x, y)
     surf.blit(text_surface, text_rect)
+
+def dibujar_boton(surf, rect, color, texto, color_texto=BLANCO, tamaño_texto=24):
+    """Dibuja un botón con texto centrado"""
+    pygame.draw.rect(surf, color, rect)
+    pygame.draw.rect(surf, BLANCO, rect, 2)  # Borde blanco
+    dibujar_texto(surf, texto, tamaño_texto, rect.centerx, rect.centery, color_texto)
 
 def dibujar_vidas_jugador(surf, x, y, vidas, img):
     for i in range(vidas):
@@ -1880,11 +1887,62 @@ def generar_horda_infinita(horda):
     num_bolas_moradas = min(1 + (horda // 6), 3)  # Máximo 3 bolas moradas
     num_bolas_naranjas = min(1 + (horda // 7), 3) # Máximo 3 bolas naranjas
     num_bolas_grises = min(1 + (horda // 8), 3)   # Máximo 3 bolas grises
+    
     # Ajuste para dificultad fácil: reducir en 1 las bolas verde, azul y roja (mínimo 1)
     if DIFICULTAD_JUEGO == "facil":
         num_bolas_verdes = max(1, num_bolas_verdes - 1)
         num_bolas_rojas = max(1, num_bolas_rojas - 1)
         num_bolas_azules = max(1, num_bolas_azules - 1)
+    
+    # Generar las bolas verdes
+    for _ in range(num_bolas_verdes):
+        enemigo = BolaVerde()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+    
+    # Generar las bolas rojas
+    for _ in range(num_bolas_rojas):
+        enemigo = BolaRoja()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+    
+    # Generar las bolas negras
+    for _ in range(num_bolas_negras):
+        enemigo = BolaNegra()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+    
+    # Generar las bolas azules
+    for _ in range(num_bolas_azules):
+        enemigo = BolaAzul()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+        bolas_azules.add(enemigo)  # Añadir al grupo especial de bolas azules
+    
+    # Generar las bolas moradas
+    for _ in range(num_bolas_moradas):
+        enemigo = BolaMorada()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+    
+    # Generar las bolas naranjas
+    for _ in range(num_bolas_naranjas):
+        enemigo = BolaNaranja()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+    
+    # Generar las bolas grises
+    for _ in range(num_bolas_grises):
+        enemigo = BolaGris()
+        aplicar_dificultad_enemigo(enemigo)
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
         
 def game_loop(modo_infinito=False, nivel_inicial=1):
     global jugador, jugador_mini_img, all_sprites, enemigos, bolas_azules, disparos_jugador, disparos_enemigos, monedas, puntos, horda_actual, ESCUDO_TEMPORAL_TIMER, MONEDAS_JUGADOR
@@ -1947,6 +2005,22 @@ def game_loop(modo_infinito=False, nivel_inicial=1):
                     if modo_infinito:
                         if mostrar_pantalla_guardar():
                             guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
+                    jugando = False
+            elif evento.type == pygame.MOUSEBUTTONUP and modo_infinito:
+                # Manejar clics en botones solo en modo infinito
+                boton_guardar = pygame.Rect(ANCHO - 200, ALTO - 60, 80, 40)
+                boton_salir = pygame.Rect(ANCHO - 100, ALTO - 60, 80, 40)
+                
+                if boton_guardar.collidepoint(evento.pos):
+                    # Guardar progreso y mostrar confirmación
+                    guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
+                    # Mostrar mensaje de confirmación temporal
+                    poder_texto = "¡Progreso guardado!"
+                    poder_texto_timer = pygame.time.get_ticks()
+                elif boton_salir.collidepoint(evento.pos):
+                    # Preguntar si guardar antes de salir
+                    if mostrar_pantalla_guardar():
+                        guardar_progreso_infinito(horda_actual, puntos, jugador.vidas)
                     jugando = False
 
         all_sprites.update()
@@ -2022,6 +2096,13 @@ def game_loop(modo_infinito=False, nivel_inicial=1):
             # En modo infinito, solo mostrar las recolectadas en la horda
             texto_monedas = f"Monedas horda: {monedas_recolectadas_nivel}"
             dibujar_texto(pantalla, texto_monedas, 22, ANCHO - 120, 10)
+            
+            # Dibujar botones de Guardar y Salir en modo infinito
+            boton_guardar = pygame.Rect(ANCHO - 200, ALTO - 60, 80, 40)
+            boton_salir = pygame.Rect(ANCHO - 100, ALTO - 60, 80, 40)
+            
+            dibujar_boton(pantalla, boton_guardar, VERDE, "GUARDAR", NEGRO, 18)
+            dibujar_boton(pantalla, boton_salir, ROJO, "SALIR", BLANCO, 18)
 
         # Dibujar texto del poder
         if poder_texto and pygame.time.get_ticks() - poder_texto_timer < 2000:  # 2 segundos
