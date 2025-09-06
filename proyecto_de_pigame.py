@@ -12,6 +12,7 @@ import os
 # Inicialización de Pygame
 pygame.init()
 bolas_celestes = pygame.sprite.Group()
+pygame.display.set_caption('Destruye los aliens')
 
 # Clase BolaCeleste (debe ir después de inicializar pygame)
 class BolaCeleste(pygame.sprite.Sprite):
@@ -125,7 +126,7 @@ def dibujar_boton(surf, rect, color, texto, color_texto=BLANCO, tamaño_texto=24
 def dibujar_vidas_jugador(surf, x, y, vidas, img):
     for i in range(vidas):
         img_rect = img.get_rect()
-        img_rect.x = x + 30 * i
+        img_rect.x = x + (img.get_width() + 10) * i
         img_rect.y = y
         surf.blit(img, img_rect)
 
@@ -920,15 +921,15 @@ def show_game_over_screen():
     # Botón de "Tienda"
     button_tienda_rect = pygame.Rect(ANCHO / 2 - 100, ALTO / 2 - 70, 200, 50)
     pygame.draw.rect(pantalla, CYAN, button_tienda_rect)
-    dibujar_texto(pantalla, "Tienda", 24, ANCHO / 2, ALTO / 2 - 60, NEGRO)
+    dibujar_texto(pantalla, "Tienda", 24, button_tienda_rect.centerx, button_tienda_rect.centery, NEGRO)
     # Botón de "Volver a Jugar"
     button_reiniciar_rect = pygame.Rect(ANCHO / 2 - 100, ALTO / 2 - 5, 200, 50)
     pygame.draw.rect(pantalla, VERDE, button_reiniciar_rect)
-    dibujar_texto(pantalla, "Volver a Jugar", 24, ANCHO / 2, ALTO / 2 + 10, NEGRO)
+    dibujar_texto(pantalla, "Volver a Jugar", 24, button_reiniciar_rect.centerx, button_reiniciar_rect.centery, NEGRO)
     # Botón de "Volver al Menú"
     button_menu_rect = pygame.Rect(ANCHO / 2 - 100, ALTO / 2 + 60, 200, 50)
     pygame.draw.rect(pantalla, AMARILLO, button_menu_rect)
-    dibujar_texto(pantalla, "Volver al Menú", 24, ANCHO / 2, ALTO / 2 + 70, NEGRO)
+    dibujar_texto(pantalla, "Volver al Menú", 24, button_menu_rect.centerx, button_menu_rect.centery, NEGRO)
     pygame.display.flip()
     esperando = True
     while esperando:
@@ -1060,7 +1061,7 @@ def mostrar_pantalla_inicio():
         pantalla.fill(NEGRO)
         
         # Título del juego
-        dibujar_texto(pantalla, "DESTRUYE LOS CÍRCULOS", 64, ANCHO // 2, ALTO // 6, CYAN)
+        dibujar_texto(pantalla, "DESTRUYE LOS ALIENS", 64, ANCHO // 2, ALTO // 6, CYAN)
         
         # Botones principales (centro)
         boton_iniciar = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 - 90, 200, 50)
@@ -1144,13 +1145,13 @@ def mostrar_pantalla_configuracion():
         pygame.draw.rect(pantalla, VERDE, boton_volver)
         
         # Texto de los botones de controles
-        dibujar_texto(pantalla, "FLECHAS", 18, ANCHO // 2 - 80, ALTO // 2 + 60, NEGRO)
-        dibujar_texto(pantalla, "WASD", 18, ANCHO // 2 + 80, ALTO // 2 + 60, NEGRO)
+        dibujar_texto(pantalla, "FLECHAS", 18, boton_flechas.centerx, boton_flechas.centery, NEGRO)
+        dibujar_texto(pantalla, "WASD", 18, boton_wasd.centerx, boton_wasd.centery, NEGRO)
         
         # Texto del botón de dificultad con flecha
-        dibujar_texto(pantalla, "DIFICULTAD →", 20, ANCHO // 2, ALTO // 2 + 130, NEGRO)
+        dibujar_texto(pantalla, "DIFICULTAD →", 20, boton_dificultad.centerx, boton_dificultad.centery, NEGRO)
         
-        dibujar_texto(pantalla, "VOLVER", 24, ANCHO // 2, ALTO // 2 + 190, NEGRO)
+        dibujar_texto(pantalla, "VOLVER", 24, boton_volver.centerx, boton_volver.centery, NEGRO)
         
         pygame.display.flip()
         
@@ -1875,76 +1876,56 @@ def aplicar_dificultad_enemigo(enemigo):
             enemigo.shoot_delay += 1000
 
 def generar_horda_infinita(horda):
-    """Genera bolas para niveles infinitos con dificultad creciente"""
+    """Genera bolas para niveles infinitos, reduciendo el total en 3 y con un máximo de 2 bolas por tipo."""
     if horda > 1:
         mostrar_pantalla_horda(horda)
-    
-    # Dificultad creciente: más bolas según el número de horda
-    num_bolas_verdes = min(3 + (horda // 3), 8)  # Máximo 8 bolas verdes
-    num_bolas_rojas = min(2 + (horda // 2), 6)    # Máximo 6 bolas rojas
-    num_bolas_negras = min(2 + (horda // 4), 5)   # Máximo 5 bolas negras
-    num_bolas_azules = min(1 + (horda // 5), 4)   # Máximo 4 bolas azules
-    num_bolas_moradas = min(1 + (horda // 6), 3)  # Máximo 3 bolas moradas
-    num_bolas_naranjas = min(1 + (horda // 7), 3) # Máximo 3 bolas naranjas
-    num_bolas_grises = min(1 + (horda // 8), 3)   # Máximo 3 bolas grises
-    
-    # Ajuste para dificultad fácil: reducir en 1 las bolas verde, azul y roja (mínimo 1)
+
+    # Diccionario de bolas posibles y sus cantidades calculadas
+    bolas_posibles = {
+        'BolaVerde': min(3 + (horda // 3), 8),
+        'BolaRoja': min(2 + (horda // 2), 6),
+        'BolaNegra': min(2 + (horda // 4), 5),
+        'BolaAzul': min(1 + (horda // 5), 4),
+        'BolaMorada': min(1 + (horda // 6), 3),
+        'BolaNaranja': min(1 + (horda // 7), 3),
+        'BolaGris': min(1 + (horda // 8), 3),
+    }
+
+    # Ajuste para dificultad fácil
     if DIFICULTAD_JUEGO == "facil":
-        num_bolas_verdes = max(1, num_bolas_verdes - 1)
-        num_bolas_rojas = max(1, num_bolas_rojas - 1)
-        num_bolas_azules = max(1, num_bolas_azules - 1)
-    
-    # Generar las bolas verdes
-    for _ in range(num_bolas_verdes):
-        enemigo = BolaVerde()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
-    
-    # Generar las bolas rojas
-    for _ in range(num_bolas_rojas):
-        enemigo = BolaRoja()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
-    
-    # Generar las bolas negras
-    for _ in range(num_bolas_negras):
-        enemigo = BolaNegra()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
-    
-    # Generar las bolas azules
-    for _ in range(num_bolas_azules):
-        enemigo = BolaAzul()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
-        bolas_azules.add(enemigo)  # Añadir al grupo especial de bolas azules
-    
-    # Generar las bolas moradas
-    for _ in range(num_bolas_moradas):
-        enemigo = BolaMorada()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
-    
-    # Generar las bolas naranjas
-    for _ in range(num_bolas_naranjas):
-        enemigo = BolaNaranja()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
-    
-    # Generar las bolas grises
-    for _ in range(num_bolas_grises):
-        enemigo = BolaGris()
-        aplicar_dificultad_enemigo(enemigo)
-        all_sprites.add(enemigo)
-        enemigos.add(enemigo)
+        bolas_posibles['BolaVerde'] = max(1, bolas_posibles['BolaVerde'] - 1)
+        bolas_posibles['BolaRoja'] = max(1, bolas_posibles['BolaRoja'] - 1)
+        bolas_posibles['BolaAzul'] = max(1, bolas_posibles['BolaAzul'] - 1)
+
+    # Filtrar los tipos de bolas que realmente aparecerán
+    tipos_a_generar = [tipo for tipo, num in bolas_posibles.items() if num > 0]
+
+    lista_enemigos_a_crear = []
+    # Generar los enemigos de los tipos seleccionados y guardarlos en una lista temporal
+    for tipo_bola_str in tipos_a_generar:
+        clase_bola = BOLA_CLASES[tipo_bola_str]
+        # Se limita el número de bolas de cada tipo a un máximo de 2
+        num_bolas = min(bolas_posibles[tipo_bola_str], 2)
         
-def game_loop(modo_infinito=False, nivel_inicial=1):
+        for _ in range(num_bolas):
+            enemigo = clase_bola()
+            aplicar_dificultad_enemigo(enemigo)
+            lista_enemigos_a_crear.append(enemigo)
+
+    # Reducir el número total de bolas en 3 si es posible
+    if len(lista_enemigos_a_crear) > 3:
+        for _ in range(3):
+            if lista_enemigos_a_crear:
+                lista_enemigos_a_crear.pop(random.randrange(len(lista_enemigos_a_crear)))
+
+    # Añadir los enemigos finales a los grupos de sprites
+    for enemigo in lista_enemigos_a_crear:
+        all_sprites.add(enemigo)
+        enemigos.add(enemigo)
+        if isinstance(enemigo, BolaAzul):
+            bolas_azules.add(enemigo)
+        
+def game_loop(modo_infinito=False, nivel_inicial=1, reiniciar_infinito=False):
     global jugador, jugador_mini_img, all_sprites, enemigos, bolas_azules, disparos_jugador, disparos_enemigos, monedas, puntos, horda_actual, ESCUDO_TEMPORAL_TIMER, MONEDAS_JUGADOR
 
     # Variables para el texto de poder
@@ -1982,7 +1963,10 @@ def game_loop(modo_infinito=False, nivel_inicial=1):
         monedas_nivel_total = 0
 
     if modo_infinito:
-        progreso = cargar_progreso_infinito()
+        progreso = None
+        if not reiniciar_infinito:
+            progreso = cargar_progreso_infinito()
+
         if progreso:
             horda_actual = progreso['horda']
             puntos = progreso['puntos']
@@ -2008,8 +1992,8 @@ def game_loop(modo_infinito=False, nivel_inicial=1):
                     jugando = False
             elif evento.type == pygame.MOUSEBUTTONUP and modo_infinito:
                 # Manejar clics en botones solo en modo infinito
-                boton_guardar = pygame.Rect(ANCHO - 200, ALTO - 60, 80, 40)
-                boton_salir = pygame.Rect(ANCHO - 100, ALTO - 60, 80, 40)
+                boton_guardar = pygame.Rect(ANCHO - 200, 50, 80, 40)
+                boton_salir = pygame.Rect(ANCHO - 100, 50, 80, 40)
                 
                 if boton_guardar.collidepoint(evento.pos):
                     # Guardar progreso y mostrar confirmación
@@ -2074,7 +2058,10 @@ def game_loop(modo_infinito=False, nivel_inicial=1):
         if jugador.vidas == 0 and not jugador.hidden:
             opcion = show_game_over_screen()
             if opcion == "reiniciar":
-                game_loop(modo_infinito, nivel_inicial)
+                if modo_infinito:
+                    if os.path.exists(ARCHIVO_GUARDADO):
+                        os.remove(ARCHIVO_GUARDADO)
+                game_loop(modo_infinito, nivel_inicial=1 if modo_infinito else nivel_inicial, reiniciar_infinito=True)
                 return
             elif opcion == "tienda":
                 mostrar_pantalla_tienda()
@@ -2098,8 +2085,8 @@ def game_loop(modo_infinito=False, nivel_inicial=1):
             dibujar_texto(pantalla, texto_monedas, 22, ANCHO - 120, 10)
             
             # Dibujar botones de Guardar y Salir en modo infinito
-            boton_guardar = pygame.Rect(ANCHO - 200, ALTO - 60, 80, 40)
-            boton_salir = pygame.Rect(ANCHO - 100, ALTO - 60, 80, 40)
+            boton_guardar = pygame.Rect(ANCHO - 200, 50, 80, 40)
+            boton_salir = pygame.Rect(ANCHO - 100, 50, 80, 40)
             
             dibujar_boton(pantalla, boton_guardar, VERDE, "GUARDAR", NEGRO, 18)
             dibujar_boton(pantalla, boton_salir, ROJO, "SALIR", BLANCO, 18)
@@ -2121,13 +2108,16 @@ if __name__ == "__main__":
                 game_loop(modo_infinito=False, nivel_inicial=nivel_seleccionado)
         elif opcion == "infinito":
             opcion_infinito = mostrar_pantalla_guardado_infinito()
-            if opcion_infinito != "volver":
-                game_loop(modo_infinito=True)
+            if opcion_infinito == "nuevo":
+                if os.path.exists(ARCHIVO_GUARDADO):
+                    os.remove(ARCHIVO_GUARDADO)
+                game_loop(modo_infinito=True, reiniciar_infinito=True)
+            elif opcion_infinito == "continuar":
+                game_loop(modo_infinito=True, reiniciar_infinito=False)
         elif opcion == "configuracion":
             mostrar_pantalla_configuracion()
         elif opcion == "tienda":
             mostrar_pantalla_tienda()
         elif opcion == "salir":
-            break
-    pygame.quit()
-    sys.exit()
+            pygame.quit()
+            sys.exit()
